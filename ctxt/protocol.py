@@ -15,6 +15,7 @@ Request structure:
 class General:
 	RES_OK = 0x00
 	RES_ERROR = 0x01
+	MIN_REQ_LEN = 5
 
 	@staticmethod
 	def res_ok():
@@ -45,6 +46,45 @@ class User(General):
 	REQ_LEAVE = 0x22
 
 	# TODO::
+	@staticmethod
+	def req_join(name):
+		bname = bytearray(name)
+		blen = len(bname)
+		req = struct.pack(
+				"<BII{}s".format(blen),
+				User.REQ_JOIN,
+				blen + 4, blen,
+				bname)
+		return req
+
+	@staticmethod
+	def req_leave():
+		req = struct.pack(
+				"<B", User.REQ_LEAVE)
+		return req
+
+	@staticmethod
+	def unpack(breq_original):
+		breq = bytearray(breq_original)
+		r_id, r_len = struct.unpack("<BI", breq[:5])
+		breq = breq[5:r_len]
+
+		d = {"id":r_id}
+
+		# Join
+		if r_id == User.REQ_JOIN:
+			blen, bname = struct.unpack(
+					"<I{}s".format(r_len - 4),
+					breq)
+			d["name"] = unicode(b)
+		# Or leave?
+		elif r_id == User.REQ_LEAVE:
+			# No arguments here.
+			pass
+		# Pass it to the superclass.
+		else:
+			return super(Edit, Edit).unpack(breq_original)
+		return d
 
 class Edit(General):
 	REQ_INSERT = 0xE1
@@ -56,7 +96,7 @@ class Edit(General):
 		btext = bytearray(text)
 		blen = len(btext)
 		req = struct.pack(
-				"<BII{}s".format(len(btext)),
+				"<BII{}s".format(blen),
 				Edit.REQ_INSERT,
 				blen + 4, blen,
 				btext)
