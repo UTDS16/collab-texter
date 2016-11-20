@@ -31,8 +31,6 @@ class Server(Borg):
 		self.socket = None
 		self.clients = []
 
-		log.info("Starting the server")
-
 	"""
 	Start listening for incoming connections.
 	"""
@@ -47,6 +45,8 @@ class Server(Borg):
 		# Listen
 		self.log.info("Listening for incoming connections..")
 		self.socket.listen(Server.TCP_CLIENTS_QUEUE_LEN)
+		# Non-blocking
+		self.socket.setblocking(0)
 
 		while self.online:
 			try:
@@ -54,17 +54,42 @@ class Server(Borg):
 				self.log.info("New client connected from {}".format(source))
 
 				# Spawn a thread to serve the client.
-				t = ClientThread(source[0], source[1])
+				t = ClientThread(client_socket, source)
 				t.start()
 				self.clients.append([source, t])
+
+				print(self)
+				print(self.socket)
+				print(self.clients)
+			except socket.error as e:
+				if e.errno not in [11]:
+					self.log.exception(e)
 			except Exception as e:
 				if self.online:
 					self.log.exception(e)
+
+		print(self)
+		print(self.socket)
+		print(self.clients)
+
+		# Close the socket, if any.
+		if self.socket != None:
+			self.log.info("Closing socket")
+			self.socket.close()
+		else:
+			self.log.info("Socket already closed")
+
+		# Join clients, if any.
+		if len(self.clients) > 0:
+			self.log.info("Joining threads")
+			for client in self.clients:
+				self.log.info("Joining {}".format(client))
+				self.log.error("Indrek or Martin, please implement a messaging queue here")
+				#client.join()
+		else:
+			self.log.info("No client threads to join")
 	
-	@staticmethod
-	def close():
-		self = Server.get_instance()
-		
+	def close(self):
 		self.online = False
 
 def init_logging():
@@ -85,14 +110,14 @@ def init_logging():
 Custom signal handler for SIGINT, SIGTERM.
 """
 def signal_handler(signum, frame):
-	server = Server()
+	server = Server.get_instance()
 
 	if signum == signal.SIGINT:
 		server.log.warning("Received SIGINT, closing server..")
 	elif signum == signal.SIGTERM:
 		server.log.warning("Received SIGTERM, closing server..")
 	
-	server.close()
+	server.online = False
 	
 if __name__ == '__main__':
 	# Register signal handlers for SIGINT, SIGTERM.

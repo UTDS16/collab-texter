@@ -1,4 +1,4 @@
-# Alex Martelli's singleton pattern (called Borg)
+# Based on Alex Martelli's singleton pattern (called Borg)
 # http://python-3-patterns-idioms-test.readthedocs.io/en/latest/Singleton.html
 
 class Borg:
@@ -6,4 +6,7 @@ class Borg:
 
 	def __init__(self):
 		self.__dict__ = self._shared_state
-	
+
+	@staticmethod
+	def get_instance():
+		return Borg()
