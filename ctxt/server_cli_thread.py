@@ -48,11 +48,7 @@ class ClientThread(threading.Thread):
 						if msg.id == cp.Protocol.REQ_INT_CLOSE:
 							self.online = False
 					else:
-						if msg.id == cp.Protocol.REQ_JOIN:
-							self.name = msg.name
-							self.state += 1
-						else:
-							self.log.error("Please implement me")
+						self.log.error("Please implement me")
 
 				# Receive request header
 				hdr = self.socket.recv(cp.Protocol.MIN_REQ_LEN)
@@ -68,6 +64,23 @@ class ClientThread(threading.Thread):
 				# Unpack the request
 				d = cp.Protocol.unpack(hdr + data)
 				self.log.debug("Request: {}".format(d))
+				# Forward to the server
+				msg = cp.Message(d, False)
+				self.queue_cs.put(msg)
+
+				# Some requests can be acknowledged right away.
+				if msg.id == cp.Protocol.REQ_JOIN:
+					self.name = msg.name
+					self.state += 1
+					# TODO:: Any auth?
+
+					# Acknowledge the join.
+					self.log.debug("Sending Ack")
+					res = cp.Protocol.res_ok(msg.id)
+					self.socket.sendall(res)
+
+					# TODO:: Send the current version of the whole document.
+
 			except socket.timeout:
 				pass
 			except socket.error as e:

@@ -29,8 +29,8 @@ class Protocol():
 	REQ_INT_CLOSE = 0xFF
 
 	@staticmethod
-	def res_ok():
-		return struct.pack("<BI", Protocol.RES_OK, 0)
+	def res_ok(request_id):
+		return struct.pack("<BIB", Protocol.RES_OK, 1, request_id)
 
 	@staticmethod
 	def res_error(error):
@@ -121,8 +121,11 @@ class Protocol():
 		elif r_id == Protocol.REQ_SET_CURPOS:
 			x, y = struct.unpack("<II", breq)
 			d["cursor"] = (x, y)
+		elif r_id == Protocol.RES_OK:
+			req, = struct.unpack("<B", breq)
+			d["req_id"] = req
 		elif r_id == Protocol.RES_ERROR:
-			error = struct.unpack("<I", breq)
+			error, = struct.unpack("<I", breq)
 			d["error"] = error
 		return d
 

@@ -3,6 +3,7 @@
 import ctxt.document as cd
 from ctxt.borg import Borg
 import ctxt.protocol as cp
+import ctxt.util as cu
 import socket
 import argparse
 import threading
@@ -10,10 +11,17 @@ import logging
 import signal
 import struct
 import urwid
+import queue
 
 class Client():
 	LOGNAME = "CT.Client"
 	online = False
+
+	STAT_IDLE = 0
+	STAT_CONNECTING = 1
+	STAT_CONNECTED = 2
+	STAT_JOINING = 3
+	STAT_JOINED = 4
 
 	"""
 	Get client log.
@@ -27,6 +35,8 @@ class Client():
 
 		Client.online = False
 		self.socket = None
+		self.state = Client.STAT_IDLE
+		self.queue_sc = queue.Queue()
 
 		log.info("Starting the client")
 
@@ -35,6 +45,8 @@ class Client():
 	"""
 	def connect(self, address="127.0.0.1", port=7777):
 		try:
+			self.state = Client.STAT_CONNECTING
+
 			# Create TCP/IP socket
 			self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -47,6 +59,9 @@ class Client():
 
 			self.socket.connect((address, port))
 			self.socket.setblocking(0)
+			self.state = Client.STAT_CONNECTED
+			self.online = True
+
 			self.log.info("Connected to {}:{}".format(address, port))
 		except Exception as e:
 			self.log.exception("Failed to connect to {}:{} ".format(address, port))
@@ -56,6 +71,7 @@ class Client():
 		return True
 
 	def join_doc(self, name):
+		self.state = Client.STAT_JOINING
 		self.name = name
 
 		req = cp.Protocol.req_join(name)
@@ -67,11 +83,41 @@ class Client():
 	def update(self):
 		if not self.socket or not self.online:
 			return
+		if not self.online:
+			self.log.info("Closing the connection")
 
-		self.online = True
+			self.socket.close()
+			self.socket = None
+			return
+
 		try:
-			# TODO:: Implement
-			pass
+			# Receive the header
+			hdr = self.socket.recv(cp.Protocol.MIN_REQ_LEN)
+			if len(hdr) < cp.Protocol.MIN_REQ_LEN:
+				return
+
+			self.log.debug("Received header: " + cu.to_hex_str(hdr))
+
+			# TODO:: Should change socket back to blocking with timeout here?
+
+			# Extract payload length.
+			r_len = cp.Protocol.get_len(hdr)
+			# Receive the rest of the data.
+			data = self.socket.recv(r_len)
+			if len(data) < r_len:
+				self.log.warning("Dropped message")
+				return
+
+			self.log.debug("Received data: " + cu.to_hex_str(hdr + data))
+
+			d = cp.Protocol.unpack(hdr + data)
+			# Request acknowledged?
+			if d["id"] == cp.Protocol.RES_OK:
+				# That might mean we've successfully joined.
+				if self.state == Client.STAT_JOINING and d["req_id"] == cp.Protocol.REQ_JOIN:
+					self.state = Client.STAT_JOINED
+					msg = cp.Message(d, True)
+					self.queue_sc.put(msg)
 		except socket.error as e:
 			# Skip "Resource temporarily unavailable".
 			if e.errno not in [11]:
@@ -166,9 +212,15 @@ class GUI():
 			("weight", 70, c_txt), 
 			("weight", 30, self.c_srv_log)
 			])
-		self.c_body.set_focus(1)
+		self.focus_srv()
 
 		self.c_frame = urwid.Frame(self.c_body, self.l_title, self.l_status)
+	
+	def focus_srv(self):
+		self.c_body.set_focus(1)
+
+	def focus_text(self):
+		self.c_body.set_focus(0)
 	
 	"""
 	Handle unhandled keys.
@@ -213,6 +265,13 @@ class GUI():
 	"""
 	def update(self, loop=None, user_data=None):
 		self.client.update()
+
+		if not self.client.queue_sc.empty():
+			msg = self.client.queue_sc.get()
+			if msg.id == cp.Protocol.RES_OK and msg.req_id == cp.Protocol.REQ_JOIN:
+				self.focus_text()
+				self.gui_log("Joined")
+
 		self.loop.set_alarm_in(self.update_period, self.update)
 
 	def start(self):
