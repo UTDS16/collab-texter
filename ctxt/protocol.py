@@ -12,10 +12,20 @@ Request structure:
 	Arguments (REQ_LEN B)
 """
 
-class General:
+class Protocol():
 	RES_OK = 0x00
 	RES_ERROR = 0x01
 	MIN_REQ_LEN = 5
+
+	REQ_JOIN = 0x21
+	REQ_LEAVE = 0x22
+
+	REQ_INSERT = 0xE1
+	REQ_GET_CURPOS = 0xE2
+	REQ_SET_CURPOS = 0xE3
+
+	# Internal close request
+	REQ_INT_CLOSE = 0xFF
 
 	@staticmethod
 	def res_ok():
@@ -27,25 +37,6 @@ class General:
 				"<BII", General.RES_ERROR, 
 				4, error)
 	
-	@staticmethod
-	def unpack(breq):
-		breq = bytearray(breq)
-		r_id, r_len = struct.unpack("<BI", breq[:5])
-		breq = breq[5:r_len]
-
-		d = {"id":r_id}
-
-		# Error?
-		if r_id == General.RES_ERROR:
-			error = struct.unpack("<I", breq)
-			d["error"] = error
-		return d
-
-class User(General):
-	REQ_JOIN = 0x21
-	REQ_LEAVE = 0x22
-
-	# TODO::
 	@staticmethod
 	def req_join(name):
 		bname = bytearray(name)
@@ -62,34 +53,6 @@ class User(General):
 		req = struct.pack(
 				"<B", User.REQ_LEAVE)
 		return req
-
-	@staticmethod
-	def unpack(breq_original):
-		breq = bytearray(breq_original)
-		r_id, r_len = struct.unpack("<BI", breq[:5])
-		breq = breq[5:r_len]
-
-		d = {"id":r_id}
-
-		# Join
-		if r_id == User.REQ_JOIN:
-			blen, bname = struct.unpack(
-					"<I{}s".format(r_len - 4),
-					breq)
-			d["name"] = unicode(b)
-		# Or leave?
-		elif r_id == User.REQ_LEAVE:
-			# No arguments here.
-			pass
-		# Pass it to the superclass.
-		else:
-			return super(Edit, Edit).unpack(breq_original)
-		return d
-
-class Edit(General):
-	REQ_INSERT = 0xE1
-	REQ_GET_CURPOS = 0xE2
-	REQ_SET_CURPOS = 0xE3
 
 	@staticmethod
 	def req_insert(text):
@@ -126,8 +89,18 @@ class Edit(General):
 
 		d = {"id":r_id}
 
+		# Join
+		if r_id == User.REQ_JOIN:
+			blen, bname = struct.unpack(
+					"<I{}s".format(r_len - 4),
+					breq)
+			d["name"] = unicode(b)
+		# Or leave?
+		elif r_id == User.REQ_LEAVE:
+			# No arguments here.
+			pass
 		# Insert text?
-		if r_id == Edit.REQ_INSERT:
+		elif r_id == Edit.REQ_INSERT:
 			blen, btext = struct.unpack(
 					"<I{}s".format(r_len - 4),
 					breq)
@@ -139,7 +112,12 @@ class Edit(General):
 		elif r_id == Edit.REQ_SET_CURPOS:
 			x, y = struct.unpack("<II", breq)
 			d["cursor"] = (x, y)
-		# Pass it to the superclass.
-		else:
-			return super(Edit, Edit).unpack(breq_original)
+		elif r_id == General.RES_ERROR:
+			error = struct.unpack("<I", breq)
+			d["error"] = error
 		return d
+
+class Message():
+	def __init__(self, d, internal=False):
+		self.__dict__ = d
+		self.internal = internal

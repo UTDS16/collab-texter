@@ -7,6 +7,7 @@ import threading
 import logging
 import struct
 import socket
+import queue
 
 class ClientThread(threading.Thread):
 	LOGNAME = "CT.Server.Thread"
@@ -23,10 +24,16 @@ class ClientThread(threading.Thread):
 		self.state = ClientThread.STAT_STRANGER
 
 		self.socket = socket
+		self.socket.setblocking(0)
 		self.address = source[0]
 		self.port = source[1]
 
 		self.log = logging.getLogger(str(self))
+
+		# From Client to Server.
+		self.queue_cs = queue.Queue()
+		# From Server to Client
+		self.queue_sc = queue.Queue()
 	
 	def __repr__(self):
 		return ClientThread.LOGNAME + "({}, {})".format(self.address, self.port)
@@ -35,23 +42,25 @@ class ClientThread(threading.Thread):
 		self.online = True
 		while self.online:
 			try:
-				hdr = self.socket.recv(cp.General.MIN_REQ_LEN)
+				if not self.queue_sc.empty():
+					msg = self.queue_sc.get()
+					if msg.internal:
+						if msg.id == cp.Protocol.REQ_INT_CLOSE:
+							self.online = False
+					else:
+						self.log.error("Please implement me")
+
+				hdr = self.socket.recv(cp.Protocol.MIN_REQ_LEN)
 				if len(hdr) < 5:
 					continue
 
-				bid, blen = struct.unpack("<BI", hdr[:5])
-
-				if self.state in [ClientThread.STAT_STRANGER, ClientThread.STAT_LEFT]:
-					d = cp.User.unpack(hdr)
-					print("User::" + d)
-				elif self.state == ClientThread.STAT_EDITING:
-					d = cp.Edit.unpack(hdr)
-					print("Edit::" + d)
-				else:
-					self.log.error("Invalid state, {}".format(self.state))
-
+				d = cp.Protocol.unpack(hdr)
+				print("::" + d)
 			except socket.timeout:
 				pass
+			except socket.error as e:
+				if e.errno not in [11]:
+					self.log.exception(e)
 			except Exception as e:
 				# TODO:: Limit looped logs, somehow.
 				self.log.exception(e)

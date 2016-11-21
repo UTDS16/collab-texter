@@ -3,6 +3,7 @@
 import ctxt.document as cd
 from ctxt.borg import Borg
 from ctxt.server_cli_thread import ClientThread
+import ctxt.protocol as cp
 import socket
 import argparse
 import threading
@@ -58,19 +59,12 @@ class Server(Borg):
 				t.start()
 				self.clients.append([source, t])
 
-				print(self)
-				print(self.socket)
-				print(self.clients)
 			except socket.error as e:
 				if e.errno not in [11]:
 					self.log.exception(e)
 			except Exception as e:
 				if self.online:
 					self.log.exception(e)
-
-		print(self)
-		print(self.socket)
-		print(self.clients)
 
 		# Close the socket, if any.
 		if self.socket != None:
@@ -82,10 +76,15 @@ class Server(Borg):
 		# Join clients, if any.
 		if len(self.clients) > 0:
 			self.log.info("Joining threads")
+
+			msg = cp.Message({"id":cp.Protocol.REQ_INT_CLOSE}, True)
+
 			for client in self.clients:
-				self.log.info("Joining {}".format(client))
-				self.log.error("Indrek or Martin, please implement a messaging queue here")
-				#client.join()
+				if len(client) == 2:
+					t = client[1]
+					self.log.info("Joining {}".format(client))
+					t.queue_sc.put(msg)
+					t.join()
 		else:
 			self.log.info("No client threads to join")
 	
