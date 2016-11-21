@@ -4,6 +4,7 @@ marshalling and unmarshalling.
 """
 
 import struct
+import ctxt.util as cu
 
 """
 Request structure:
@@ -29,29 +30,30 @@ class Protocol():
 
 	@staticmethod
 	def res_ok():
-		return struct.pack("<BI", General.RES_OK, 0)
+		return struct.pack("<BI", Protocol.RES_OK, 0)
 
 	@staticmethod
 	def res_error(error):
 		return struct.pack(
-				"<BII", General.RES_ERROR, 
+				"<BII", Protocol.RES_ERROR, 
 				4, error)
 	
 	@staticmethod
 	def req_join(name):
-		bname = bytearray(name)
+		bname = bytearray(name, "utf8")
 		blen = len(bname)
 		req = struct.pack(
 				"<BII{}s".format(blen),
-				User.REQ_JOIN,
+				Protocol.REQ_JOIN,
 				blen + 4, blen,
 				bname)
+		print(cu.to_hex_str(req))
 		return req
 
 	@staticmethod
 	def req_leave():
 		req = struct.pack(
-				"<B", User.REQ_LEAVE)
+				"<B", Protocol.REQ_LEAVE)
 		return req
 
 	@staticmethod
@@ -60,7 +62,7 @@ class Protocol():
 		blen = len(btext)
 		req = struct.pack(
 				"<BII{}s".format(blen),
-				Edit.REQ_INSERT,
+				Protocol.REQ_INSERT,
 				blen + 4, blen,
 				btext)
 		return req
@@ -69,7 +71,7 @@ class Protocol():
 	def req_get_cursor_pos():
 		req = struct.pack(
 				"<BI",
-				Edit.REQ_GET_CURPOS,
+				Protocol.REQ_GET_CURPOS,
 				0)
 		return req
 
@@ -77,42 +79,50 @@ class Protocol():
 	def req_set_cursor_pos(x, y):
 		req = struct.pack(
 				"<BIII", 
-				Edit.REQ_SET_CURPOS,
+				Protocol.REQ_SET_CURPOS,
 				8, x, y)
 		return req
 
 	@staticmethod
-	def unpack(breq_original):
+	def get_len(breq_original):
 		breq = bytearray(breq_original)
 		r_id, r_len = struct.unpack("<BI", breq[:5])
-		breq = breq[5:r_len]
+
+		return r_len
+
+	@staticmethod
+	def unpack(breq_original):
+		breq = bytearray(breq_original)
+
+		r_id, r_len = struct.unpack("<BI", breq[:5])
+		breq = breq[5:(5+r_len)]
 
 		d = {"id":r_id}
 
 		# Join
-		if r_id == User.REQ_JOIN:
+		if r_id == Protocol.REQ_JOIN:
 			blen, bname = struct.unpack(
 					"<I{}s".format(r_len - 4),
 					breq)
-			d["name"] = unicode(b)
+			d["name"] = bname.decode("utf-8")
 		# Or leave?
-		elif r_id == User.REQ_LEAVE:
+		elif r_id == Protocol.REQ_LEAVE:
 			# No arguments here.
 			pass
 		# Insert text?
-		elif r_id == Edit.REQ_INSERT:
+		elif r_id == Protocol.REQ_INSERT:
 			blen, btext = struct.unpack(
 					"<I{}s".format(r_len - 4),
 					breq)
-			d["text"] = unicode(btext)
+			d["text"] = btext.decode("utf-8")
 		# Get remote cursor position?
-		elif r_id == Edit.REQ_GET_CURPOS:
+		elif r_id == Protocol.REQ_GET_CURPOS:
 			pass
 		# Set remote cursor position?
-		elif r_id == Edit.REQ_SET_CURPOS:
+		elif r_id == Protocol.REQ_SET_CURPOS:
 			x, y = struct.unpack("<II", breq)
 			d["cursor"] = (x, y)
-		elif r_id == General.RES_ERROR:
+		elif r_id == Protocol.RES_ERROR:
 			error = struct.unpack("<I", breq)
 			d["error"] = error
 		return d

@@ -48,14 +48,26 @@ class ClientThread(threading.Thread):
 						if msg.id == cp.Protocol.REQ_INT_CLOSE:
 							self.online = False
 					else:
-						self.log.error("Please implement me")
+						if msg.id == cp.Protocol.REQ_JOIN:
+							self.name = msg.name
+							self.state += 1
+						else:
+							self.log.error("Please implement me")
 
+				# Receive request header
 				hdr = self.socket.recv(cp.Protocol.MIN_REQ_LEN)
-				if len(hdr) < 5:
+				if len(hdr) < cp.Protocol.MIN_REQ_LEN:
 					continue
-
-				d = cp.Protocol.unpack(hdr)
-				print("::" + d)
+				# Extract payload length
+				r_len = cp.Protocol.get_len(hdr)
+				# Receive request payload
+				data = self.socket.recv(r_len)
+				if len(data) < r_len:
+					self.log.warning("Dropped request. Should increase timeout?")
+					continue
+				# Unpack the request
+				d = cp.Protocol.unpack(hdr + data)
+				self.log.debug("Request: {}".format(d))
 			except socket.timeout:
 				pass
 			except socket.error as e:

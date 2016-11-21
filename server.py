@@ -32,6 +32,8 @@ class Server(Borg):
 		self.socket = None
 		self.clients = []
 
+		self.document = cd.Document()
+
 	"""
 	Start listening for incoming connections.
 	"""

@@ -3,15 +3,17 @@ Document class.
 """
 
 import logging
+import ctxt.util as cu
 
 class Document:
-	def __init__(self, hash):
+	def __init__(self):
 		self.log = logging.getLogger("CT.Document")
 		self.lines = []
 		self.unsaved_changes = True
 		# TODO:: Should we have the same class on the client
 		# side as well?
-		self.local_filepath = "storage/{}.txt".format(hash)
+		self.hash = cu.gen_random_string(32)
+		self.local_filepath = "storage/{}.txt".format(self.hash)
 
 	"""
 	Gets the whole text as a single string.

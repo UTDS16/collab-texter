@@ -2,13 +2,14 @@
 
 import ctxt.document as cd
 from ctxt.borg import Borg
+import ctxt.protocol as cp
 import socket
 import argparse
 import threading
 import logging
 import signal
 import struct
-
+import urwid
 
 class Client():
 	LOGNAME = "CT.Client"
@@ -54,6 +55,12 @@ class Client():
 			return False
 		return True
 
+	def join_doc(self, name):
+		self.name = name
+
+		req = cp.Protocol.req_join(name)
+		self.socket.sendall(req)
+
 	"""
 	Check for messages waiting in socket buffer.
 	"""
@@ -90,9 +97,13 @@ class GUI():
 	def __del__(self):
 		self.client.close()
 	
-	def start(self, address, port):
+	def start(self, address, port, name):
 		if address != "" and port > 1024:
 			self.client.connect(address, port)
+		if name != "":
+			self.name = name
+
+		self.client.join_doc(self.name)
 
 		self.log.error("Miroslav, please implement me!")
 
@@ -112,15 +123,16 @@ def init_logging():
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description="Collaborative Text Editor Client")
-	parser.add_argument('--address', dest='address', type=str, default="", help='server IP address')
-	parser.add_argument('--port', dest='port', type=int, default=0, help='server port number')
+	parser.add_argument('-a', '--address', dest='address', type=str, default="", help='server IP address')
+	parser.add_argument('-p', '--port', dest='port', type=int, default=0, help='server port number')
+	parser.add_argument('-n', '--name', dest='name', type=str, default="", help='nickname')
 
 	args = parser.parse_args()
 
 	log = init_logging()
 	gui = GUI()
 	try:
-		gui.start(args.address, args.port)
+		gui.start(args.address, args.port, args.name)
 	except urwid.main_loop.ExitMainLoop as e:
 		pass
 	except Exception as e:
