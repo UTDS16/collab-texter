@@ -47,7 +47,6 @@ class Protocol():
 				Protocol.REQ_JOIN,
 				blen + 4, blen,
 				bname)
-		print(cu.to_hex_str(req))
 		return req
 
 	@staticmethod
