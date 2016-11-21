@@ -10,6 +10,7 @@ import threading
 import logging
 import signal
 import struct
+import queue
 
 
 class Server(Borg):
@@ -33,6 +34,7 @@ class Server(Borg):
 		self.clients = []
 
 		self.document = cd.Document()
+		self.queue_cs = queue.Queue()
 
 	"""
 	Start listening for incoming connections.
@@ -53,11 +55,26 @@ class Server(Borg):
 
 		while self.online:
 			try:
+				# Separate threads for merging the document?
+				while not self.queue_cs.empty():
+					msg = self.queue_cs.get()
+
+					if msg.id == cp.Protocol.REQ_INSERT:
+						# Update our copy of the document.
+						self.document.insert(msg.cursor, msg.text)
+
+					# Propagate the message to other clients.
+					for client in self.clients:
+						if client != None and len(client) == 2:
+							t = client[1]
+							t.queue_sc.put(msg)
+
+				# New clients?
 				client_socket, source = self.socket.accept()
 				self.log.info("New client connected from {}".format(source))
 
 				# Spawn a thread to serve the client.
-				t = ClientThread(client_socket, source)
+				t = ClientThread(client_socket, source, self.queue_cs)
 				t.start()
 				self.clients.append([source, t])
 

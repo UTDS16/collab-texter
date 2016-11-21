@@ -57,7 +57,7 @@ class Protocol():
 
 	@staticmethod
 	def req_insert(text):
-		btext = bytearray(text)
+		btext = bytearray(text, "utf8")
 		blen = len(btext)
 		req = struct.pack(
 				"<BII{}s".format(blen),

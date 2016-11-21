@@ -10,6 +10,7 @@ import threading
 import logging
 import signal
 import struct
+import string
 import urwid
 import queue
 
@@ -125,12 +126,24 @@ class Client():
 		except Exception as e:
 			self.log.exception(e)
 	
+	def text_change(self, widget, change):
+		x, y, op, text = change
+
+		if op == cp.Protocol.REQ_INSERT:
+			req = cp.Protocol.req_set_cursor_pos(x, y)
+			req += cp.Protocol.req_insert(text)
+			self.socket.sendall(req)
+		elif op == cp.Protocol.REQ_SET_CURPOS:
+			req = cp.Protocol.req_set_cursor_pos(x, y)
+			self.socket.sendall(req)
+	
 	@staticmethod
 	def close():
 		Client.online = False
 
 class Editor(urwid.ListBox):
 	LOGNAME = "CT.Client.GUI.Editor"
+	signals = ["change"]
 
 	def __init__(self):
 		self.log = logging.getLogger(Editor.LOGNAME)
@@ -142,15 +155,17 @@ class Editor(urwid.ListBox):
 	"""
 	Insert a line at the cursor position.
 	"""
-	def insert_line(self):
-		index = len(self.lines)
-
+	def insert_line(self, cursor=None):
 		edit = urwid.Edit()
 		if self.lines == []:
 			self.lines.append(edit)
 		else:
-			# Get current cursor position.
-			(x, y) = self.get_pos()
+			if cursor == None:
+				# Get current cursor position.
+				(x, y) = self.get_pos()
+			else:
+				(x, y) = cursor
+
 			self.log.info("Inserting line at {}, {}".format(x, y))
 			# Cut the line from the cursor position.
 			text = self.lines[y].get_text()[0]
@@ -158,15 +173,44 @@ class Editor(urwid.ListBox):
 			edit.set_edit_text(text[x:])
 			# Insert a new line.
 			self.lines.insert(self.focus_position + 1, edit)
-			self.focus_line()
+			self.focus_line(y + 1)
 
 		urwid.connect_signal(edit, "change", self.text_changed)
+
+	"""
+	Remove a line at the cursor position.
+	"""
+	def remove_line(self, cursor=None, before=False, after=False):
+		if len(self.lines) > 0:
+			if cursor == None:
+				# Get current cursor position.
+				(x, y) = self.get_pos()
+			else:
+				(x, y) = cursor
+
+			self.log.info("Removing line at {}, {}".format(x, y))
+
+			# TODO:: Synchronizing, locking on the server.
+			
+			# Remove the line before.
+			if before and y > 0:
+				text = self.lines[y - 1].get_text()[0]
+				text += self.lines[y].get_text()[0]
+				self.lines[y - 1].set_edit_text(text)
+				del self.lines[y]
+			# Remove the line after.
+			elif after and y < len(self.lines):
+				text = self.lines[y].get_text()[0]
+				text += self.lines[y + 1].get_text()[0]
+				self.lines[y].set_edit_text(text)
+				del self.lines[y + 1]
+			self.focus_line(y)
 
 	"""
 	Text has changed.
 	"""
 	def text_changed(self, widget, line):
-		self.log.debug("Changed: {}: {}".format(widget, line))
+		pass
 
 	"""
 	Focus on a specific line, or last line (-1).
@@ -178,6 +222,8 @@ class Editor(urwid.ListBox):
 			self.set_focus(line_num)
 	
 	def get_pos(self):
+		# TODO:: Take unicode into account.
+
 		y = self.focus_position
 		# We don't know the number of columns.
 		# So, I'll just supply a very large number.
@@ -185,10 +231,13 @@ class Editor(urwid.ListBox):
 		return (x, y)
 
 	"""
-	Handle some additional keypresses.
+	Handle unhandled keypresses.
 	"""
 	def keypress(self, size, key):
+		(x, y) = self.get_pos()
 		retval = self.__super.keypress(size, key)
+
+		# The key wasn't handled?
 		if retval:
 			if key == "enter":
 				self.insert_line()
@@ -196,6 +245,22 @@ class Editor(urwid.ListBox):
 				# explicitly does not work, we'll simply simulate
 				# a "Home" keypress.
 				retval = self.__super.keypress(size, "home")
+			elif key == "backspace":
+				# BUG:: Need to set the new cursor position here, somehow.
+				self.remove_line(before=True)
+			elif key == "delete":
+				self.remove_line(after=True)
+
+		# Doesn't matter if the key was handled or not,
+		# we'll bitch server about it.
+		if key in string.printable:
+			self._emit("change", (x, y, cp.Protocol.REQ_INSERT, key))
+			self.log.debug("Insert: ({}, {}): {}".format(x, y, key))
+		elif key in ["up", "down", "left", "right", "home", "end", "pageup", "pagedown"]:
+			(nx, ny) = self.get_pos()
+			self._emit("change", (nx, ny, cp.Protocol.REQ_SET_CURPOS, key))
+			self.log.debug("Move: ({}, {}): ({}, {}): {}".format(x, y, nx, ny, key))
+
 		return retval
 
 
@@ -267,6 +332,8 @@ class GUI():
 				"left", ("relative", 100), "top", ("relative", 100), 
 				left=1, right=1, top=1, bottom=1)
 
+		urwid.connect_signal(self.e_text, "change", self.client.text_change)
+
 		return self.c_text
 
 	def init_gui(self, address, port, name):
@@ -289,7 +356,6 @@ class GUI():
 		self.focus_srv()
 
 		self.c_frame = urwid.Frame(self.c_body, self.l_title, self.l_status)
-	
 
 	def focus_srv(self):
 		self.c_body.set_focus(1)

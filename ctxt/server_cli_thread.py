@@ -16,7 +16,7 @@ class ClientThread(threading.Thread):
 	STAT_EDITING = 1
 	STAT_LEFT = 2
 
-	def __init__(self, socket, source):
+	def __init__(self, socket, source, queue_cs):
 		threading.Thread.__init__(self)
 
 		self.online = False
@@ -31,9 +31,11 @@ class ClientThread(threading.Thread):
 		self.log = logging.getLogger(str(self))
 
 		# From Client to Server.
-		self.queue_cs = queue.Queue()
+		self.queue_cs = queue_cs
 		# From Server to Client
 		self.queue_sc = queue.Queue()
+
+		self.cursor_pos = (0, 0)
 	
 	def __repr__(self):
 		return ClientThread.LOGNAME + "({}, {})".format(self.address, self.port)
@@ -80,6 +82,21 @@ class ClientThread(threading.Thread):
 					self.socket.sendall(res)
 
 					# TODO:: Send the current version of the whole document.
+				elif msg.id == cp.Protocol.REQ_SET_CURPOS:
+					self.cursor_pos = msg.cursor
+
+					# Acknowledge the request.
+					self.log.debug("Sending Ack")
+					res = cp.Protocol.res_ok(msg.id)
+					self.socket.sendall(res)
+
+				elif msg.id == cp.Protocol.REQ_INSERT:
+					msg.cursor = self.cursor_pos
+
+					# Acknowledge the request.
+					self.log.debug("Sending Ack")
+					res = cp.Protocol.res_ok(msg.id)
+					self.socket.sendall(res)
 
 			except socket.timeout:
 				pass
