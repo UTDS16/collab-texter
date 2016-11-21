@@ -62,12 +62,16 @@ class Server(Borg):
 					if msg.id == cp.Protocol.REQ_INSERT:
 						# Update our copy of the document.
 						self.document.insert(msg.cursor, msg.text)
+						# No longer a request. It's now a response.
+						msg.id = cp.Protocol.RES_INSERT
 
 					# Propagate the message to other clients.
 					for client in self.clients:
 						if client != None and len(client) == 2:
 							t = client[1]
-							t.queue_sc.put(msg)
+							# Avoid forwarding messages to their author.
+							if t.get_name() != msg.name:
+								t.queue_sc.put(msg)
 
 				# New clients?
 				client_socket, source = self.socket.accept()

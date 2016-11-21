@@ -23,6 +23,7 @@ class Client():
 	STAT_CONNECTED = 2
 	STAT_JOINING = 3
 	STAT_JOINED = 4
+	STAT_EDITING = 5
 
 	"""
 	Get client log.
@@ -104,7 +105,9 @@ class Client():
 			# Extract payload length.
 			r_len = cp.Protocol.get_len(hdr)
 			# Receive the rest of the data.
+			#self.socket.setblocking(1)
 			data = self.socket.recv(r_len)
+			#self.socket.setblocking(0)
 			if len(data) < r_len:
 				self.log.warning("Dropped message")
 				return
@@ -119,6 +122,18 @@ class Client():
 					self.state = Client.STAT_JOINED
 					msg = cp.Message(d, True)
 					self.queue_sc.put(msg)
+
+					# TODO:: Wait for whole-text download first.
+					self.state = Client.STAT_EDITING
+			# Some kind of an error?
+			elif d["id"] == cp.Protocol.RES_ERROR:
+				self.log.error("Server error {}".format(d["error"]))
+			# Someone inserted text?
+			elif d["id"] == cp.Protocol.RES_INSERT:
+				self.log.debug(d)
+				if self.state == Client.STAT_EDITING:
+					msg = cp.Message(d, True)
+					self.queue_sc.put(msg)
 		except socket.error as e:
 			# Skip "Resource temporarily unavailable".
 			if e.errno not in [11]:
@@ -126,7 +141,7 @@ class Client():
 		except Exception as e:
 			self.log.exception(e)
 	
-	def text_change(self, widget, change):
+	def send_text_change(self, widget, change):
 		x, y, op, text = change
 
 		if op == cp.Protocol.REQ_INSERT:
@@ -167,12 +182,15 @@ class Editor(urwid.ListBox):
 				(x, y) = cursor
 
 			self.log.info("Inserting line at {}, {}".format(x, y))
-			# Cut the line from the cursor position.
-			text = self.lines[y].get_text()[0]
-			self.lines[y].set_edit_text(text[:x])
-			edit.set_edit_text(text[x:])
-			# Insert a new line.
-			self.lines.insert(self.focus_position + 1, edit)
+			if y == len(self.lines):
+				self.lines.append(edit)
+			else:
+				# Cut the line from the cursor position.
+				text = self.lines[y].get_text()[0]
+				self.lines[y].set_edit_text(text[:x])
+				edit.set_edit_text(text[x:])
+				# Insert a new line.
+				self.lines.insert(self.focus_position + 1, edit)
 			self.focus_line(y + 1)
 
 		urwid.connect_signal(edit, "change", self.text_changed)
@@ -205,6 +223,23 @@ class Editor(urwid.ListBox):
 				self.lines[y].set_edit_text(text)
 				del self.lines[y + 1]
 			self.focus_line(y)
+	
+	def insert_text(self, text, cursor=None):
+		if self.lines == []:
+			self.insert_line(cursor)
+		
+		if cursor == None:
+			# Get current cursor position.
+			(x, y) = self.get_pos()
+		else:
+			(x, y) = cursor
+
+		if y == len(self.lines):
+			self.insert_line(cursor)
+
+		line = self.lines[y].get_text()[0]
+		line = line[:x] + text + line[x:]
+		self.lines[y].set_edit_text(line)
 
 	"""
 	Text has changed.
@@ -332,7 +367,7 @@ class GUI():
 				"left", ("relative", 100), "top", ("relative", 100), 
 				left=1, right=1, top=1, bottom=1)
 
-		urwid.connect_signal(self.e_text, "change", self.client.text_change)
+		urwid.connect_signal(self.e_text, "change", self.client.send_text_change)
 
 		return self.c_text
 
@@ -368,10 +403,8 @@ class GUI():
 	Handle unhandled keys.
 	"""
 	def key_handler(self, key):
-		if key == "enter":
-			self.add_line()
 		# All the keys to quit.
-		elif key in ('q', 'Q', 'x', 'X', "esc"):
+		if key in ('q', 'Q', 'x', 'X', "esc"):
 			self.stop()
 		return key
 
@@ -414,10 +447,18 @@ class GUI():
 
 		if not self.client.queue_sc.empty():
 			msg = self.client.queue_sc.get()
+			# We've joined? Party?
 			if msg.id == cp.Protocol.RES_OK and msg.req_id == cp.Protocol.REQ_JOIN:
 				self.focus_text()
 				self.gui_log("Joined")
 				self.gui_status(("status-ok", "Editing"))
+			# Someone inserted some text?
+			elif msg.id == cp.Protocol.RES_INSERT:
+				(x, y) = msg.cursor
+				self.log.debug("{} inserted at ({}, {}): \"{}\"".format(
+					msg.name, x, y, msg.text))
+				self.e_text.insert_text(msg.text, msg.cursor)
+
 
 		self.loop.set_alarm_in(self.update_period, self.update)
 

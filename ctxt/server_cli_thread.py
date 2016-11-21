@@ -50,7 +50,12 @@ class ClientThread(threading.Thread):
 						if msg.id == cp.Protocol.REQ_INT_CLOSE:
 							self.online = False
 					else:
-						self.log.error("Please implement me")
+						# Forward inserts.
+						if msg.id == cp.Protocol.RES_INSERT:
+							x, y = msg.cursor
+							self.log.debug("Forwarding insert {}:({}, {}):{}".format(msg.name, x, y, msg.text))
+							res = cp.Protocol.res_insert(msg.name, x, y, msg.text)
+							self.socket.sendall(res)
 
 				# Receive request header
 				hdr = self.socket.recv(cp.Protocol.MIN_REQ_LEN)
@@ -66,37 +71,30 @@ class ClientThread(threading.Thread):
 				# Unpack the request
 				d = cp.Protocol.unpack(hdr + data)
 				self.log.debug("Request: {}".format(d))
-				# Forward to the server
 				msg = cp.Message(d, False)
-				self.queue_cs.put(msg)
 
 				# Some requests can be acknowledged right away.
 				if msg.id == cp.Protocol.REQ_JOIN:
 					self.name = msg.name
 					self.state += 1
 					# TODO:: Any auth?
-
-					# Acknowledge the join.
-					self.log.debug("Sending Ack")
-					res = cp.Protocol.res_ok(msg.id)
-					self.socket.sendall(res)
-
 					# TODO:: Send the current version of the whole document.
+
 				elif msg.id == cp.Protocol.REQ_SET_CURPOS:
 					self.cursor_pos = msg.cursor
-
-					# Acknowledge the request.
-					self.log.debug("Sending Ack")
-					res = cp.Protocol.res_ok(msg.id)
-					self.socket.sendall(res)
+					msg.name = self.name
 
 				elif msg.id == cp.Protocol.REQ_INSERT:
 					msg.cursor = self.cursor_pos
+					msg.name = self.name
 
-					# Acknowledge the request.
-					self.log.debug("Sending Ack")
-					res = cp.Protocol.res_ok(msg.id)
-					self.socket.sendall(res)
+				# Forward to the server
+				self.queue_cs.put(msg)
+
+				# Acknowledge the request.
+				self.log.debug("Sending Ack")
+				res = cp.Protocol.res_ok(msg.id)
+				self.socket.sendall(res)
 
 			except socket.timeout:
 				pass
@@ -109,3 +107,5 @@ class ClientThread(threading.Thread):
 		self.log.info("Closing socket")
 		self.socket.close()
 
+	def get_name(self):
+		return self.name

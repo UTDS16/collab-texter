@@ -16,6 +16,7 @@ Request structure:
 class Protocol():
 	RES_OK = 0x00
 	RES_ERROR = 0x01
+	RES_INSERT = 0x0E
 	MIN_REQ_LEN = 5
 
 	REQ_JOIN = 0x21
@@ -37,6 +38,21 @@ class Protocol():
 		return struct.pack(
 				"<BII", Protocol.RES_ERROR, 
 				4, error)
+	
+	@staticmethod
+	def res_insert(name, x, y, text):
+		bname = bytearray(name, "utf8")
+		bnlen = len(bname)
+		btext = bytearray(text, "utf8")
+		btlen = len(btext)
+		res = struct.pack(
+				"<BIIII{}sI{}s".format(bnlen, btlen),
+				Protocol.RES_INSERT,
+				bnlen + btlen + 16,
+				x, y,
+				bnlen, bname,
+				btlen, btext)
+		return res
 	
 	@staticmethod
 	def req_join(name):
@@ -114,6 +130,23 @@ class Protocol():
 					"<I{}s".format(r_len - 4),
 					breq)
 			d["text"] = btext.decode("utf-8")
+		elif r_id == Protocol.RES_INSERT:
+			# Extract coordinates
+			x, y, = struct.unpack("<II", breq[:8])
+			breq = breq[8:]
+			# Extract author name
+			bnlen, = struct.unpack("<I", breq[:4])
+			breq = breq[4:]
+			bname, = struct.unpack("<{}s".format(bnlen), breq[:bnlen])
+			breq = breq[bnlen:]
+			# Extract text
+			btlen, = struct.unpack("<I", breq[:4])
+			breq = breq[4:]
+			btext, = struct.unpack("<{}s".format(btlen), breq[:btlen])
+
+			d["cursor"] = (x, y)
+			d["name"] = bname.decode("utf-8")
+			d["text"] = btext.decode("utf-8")
 		# Get remote cursor position?
 		elif r_id == Protocol.REQ_GET_CURPOS:
 			pass
@@ -122,10 +155,10 @@ class Protocol():
 			x, y = struct.unpack("<II", breq)
 			d["cursor"] = (x, y)
 		elif r_id == Protocol.RES_OK:
-			req, = struct.unpack("<B", breq)
+			req, = struct.unpack("<B", breq[:1])
 			d["req_id"] = req
 		elif r_id == Protocol.RES_ERROR:
-			error, = struct.unpack("<I", breq)
+			error, = struct.unpack("<I", breq[:4])
 			d["error"] = error
 		return d
 
