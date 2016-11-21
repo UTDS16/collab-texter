@@ -129,6 +129,58 @@ class Client():
 	def close():
 		Client.online = False
 
+class Editor(urwid.ListBox):
+	LOGNAME = "CT.Client.GUI.Editor"
+
+	def __init__(self):
+		self.log = logging.getLogger(Editor.LOGNAME)
+
+		self.lines = []
+		self.insert_line()
+		self.__super.__init__(self.lines)
+
+	"""
+	Insert a line at the cursor position.
+	"""
+	def insert_line(self):
+		index = len(self.lines)
+
+		edit = urwid.Edit("{: 4d} ".format(index))
+		if self.lines == []:
+			self.lines.append(edit)
+		else:
+			self.lines.insert(self.focus_position + 1, edit)
+			self.focus_line()
+
+		urwid.connect_signal(edit, "change", self.text_changed)
+
+	"""
+	Text has changed.
+	"""
+	def text_changed(self, widget, line):
+		self.log.debug("Changed: {}: {}".format(widget, line))
+
+	"""
+	Focus on a specific line, or last line (-1).
+	"""
+	def focus_line(self, line_num=-1):
+		if line_num < 0:
+			self.set_focus(len(self.lines) - 1)
+		else:
+			self.set_focus(line_num)
+
+	"""
+	Handle some additional keypresses.
+	"""
+	def keypress(self, size, key):
+		retval = self.__super.keypress(size, key)
+		if retval:
+			if key == "enter":
+				self.insert_line()
+				retval = None
+		return retval
+
+
 class GUI():
 	# Urwid color palette
 	palette = [
@@ -184,15 +236,19 @@ class GUI():
 	"""
 	def init_gui_log(self):
 		self.l_log = urwid.Text("Not connected")
-		self.c_log = urwid.Filler(self.l_log)
+		self.c_log = urwid.Filler(self.l_log, valign='top')
 		return self.c_log
 
 	def init_gui_text(self):
-		self.e_text = urwid.Edit()
-		self.ef_text = urwid.Filler(self.e_text)
+		self.e_text = Editor()
+
 		self.f_text = urwid.SolidFill(' ')
 		self.l_text = urwid.LineBox(self.f_text)
-		self.c_text = urwid.Overlay(self.ef_text, self.l_text, "center", 1, "middle", 1)
+		self.c_text = urwid.Overlay(
+				self.e_text, self.l_text, 
+				"left", ("relative", 100), "top", ("relative", 100), 
+				left=1, right=1, top=1, bottom=1)
+
 		return self.c_text
 
 	def init_gui(self, address, port, name):
@@ -216,18 +272,22 @@ class GUI():
 
 		self.c_frame = urwid.Frame(self.c_body, self.l_title, self.l_status)
 	
+
 	def focus_srv(self):
 		self.c_body.set_focus(1)
 
-	def focus_text(self):
+	def focus_text(self, line_num=-1):
 		self.c_body.set_focus(0)
+		self.e_text.focus_line(line_num)
 	
 	"""
 	Handle unhandled keys.
 	"""
 	def key_handler(self, key):
+		if key == "enter":
+			self.add_line()
 		# All the keys to quit.
-		if key in ('q', 'Q', 'x', 'X', "esc"):
+		elif key in ('q', 'Q', 'x', 'X', "esc"):
 			self.stop()
 		return key
 
@@ -255,6 +315,8 @@ class GUI():
 		if not self.client.connect(address, port):
 			self.gui_log("Failed to connect")
 		else:
+			self.gui_status(("status-ok", "Connected"))
+
 			name = self.e_nickname.edit_text
 			self.gui_log("Joining as {}".format(name))
 			self.client.join_doc(name)
@@ -271,6 +333,7 @@ class GUI():
 			if msg.id == cp.Protocol.RES_OK and msg.req_id == cp.Protocol.REQ_JOIN:
 				self.focus_text()
 				self.gui_log("Joined")
+				self.gui_status(("status-ok", "Editing"))
 
 		self.loop.set_alarm_in(self.update_period, self.update)
 
