@@ -145,10 +145,18 @@ class Editor(urwid.ListBox):
 	def insert_line(self):
 		index = len(self.lines)
 
-		edit = urwid.Edit("{: 4d} ".format(index))
+		edit = urwid.Edit()
 		if self.lines == []:
 			self.lines.append(edit)
 		else:
+			# Get current cursor position.
+			(x, y) = self.get_pos()
+			self.log.info("Inserting line at {}, {}".format(x, y))
+			# Cut the line from the cursor position.
+			text = self.lines[y].get_text()[0]
+			self.lines[y].set_edit_text(text[:x])
+			edit.set_edit_text(text[x:])
+			# Insert a new line.
 			self.lines.insert(self.focus_position + 1, edit)
 			self.focus_line()
 
@@ -168,6 +176,13 @@ class Editor(urwid.ListBox):
 			self.set_focus(len(self.lines) - 1)
 		else:
 			self.set_focus(line_num)
+	
+	def get_pos(self):
+		y = self.focus_position
+		# We don't know the number of columns.
+		# So, I'll just supply a very large number.
+		x, _ = self.lines[y].get_cursor_coords((1000000,))
+		return (x, y)
 
 	"""
 	Handle some additional keypresses.
@@ -177,7 +192,10 @@ class Editor(urwid.ListBox):
 		if retval:
 			if key == "enter":
 				self.insert_line()
-				retval = None
+				# Note that since resetting the cursor position
+				# explicitly does not work, we'll simply simulate
+				# a "Home" keypress.
+				retval = self.__super.keypress(size, "home")
 		return retval
 
 
