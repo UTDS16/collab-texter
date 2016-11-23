@@ -59,20 +59,20 @@ class Server(Borg):
 				while not self.queue_cs.empty():
 					msg = self.queue_cs.get()
 
+					# Request to insert some text?
 					if msg.id == cp.Protocol.REQ_INSERT:
 						# Update our copy of the document.
 						self.document.insert(msg.cursor, msg.text)
 						# No longer a request. It's now a response.
 						msg.id = cp.Protocol.RES_INSERT
 
-					# Propagate the message to other clients.
-					for client in self.clients:
-						if client != None and len(client) == 2:
-							t = client[1]
-							# Avoid forwarding messages to their author.
-							if t.get_name() != msg.name:
-								t.queue_sc.put(msg)
+						self.share_to_others(msg)
+					# Request for the whole text?
+					elif msg.id == cp.Protocol.REQ_TEXT:
+						msg.id = cp.Protocol.RES_TEXT
+						msg.text = self.document.get_whole()
 
+						self.send_to(msg)
 				# New clients?
 				client_socket, source = self.socket.accept()
 				self.log.info("New client connected from {}".format(source))
@@ -111,11 +111,29 @@ class Server(Borg):
 		else:
 			self.log.info("No client threads to join")
 	
+	def share_to_others(self, msg):
+		# Propagate the message to other clients.
+		for client in self.clients:
+			if client != None and len(client) == 2:
+				t = client[1]
+				# Avoid forwarding messages to their author.
+				if t.get_name() != msg.name:
+					t.queue_sc.put(msg)
+	
+	def send_to(self, msg):
+		# Send to a specific client.
+		for client in self.clients:
+			if client != None and len(client) == 2:
+				t = client[1]
+				if t.get_name() == msg.name:
+					t.queue_sc.put(msg)
+					return
+
 	def close(self):
 		self.online = False
 
 def init_logging():
-	log = Server.get_log()
+	log = logging.getLogger("CT")
 	log.setLevel(logging.DEBUG)
 
 	handler = logging.FileHandler("log_server.txt")

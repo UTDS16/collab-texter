@@ -56,6 +56,11 @@ class ClientThread(threading.Thread):
 							self.log.debug("Forwarding insert {}:({}, {}):{}".format(msg.name, x, y, msg.text))
 							res = cp.Protocol.res_insert(msg.name, x, y, msg.text)
 							self.socket.sendall(res)
+						# Forward full text responses.
+						elif msg.id == cp.Protocol.RES_TEXT:
+							self.log.debug("Forwarding full text to {}".format(msg.name))
+							res = cp.Protocol.res_text(msg.text)
+							self.socket.sendall(res)
 
 				# Receive request header
 				hdr = self.socket.recv(cp.Protocol.MIN_REQ_LEN)
@@ -64,10 +69,13 @@ class ClientThread(threading.Thread):
 				# Extract payload length
 				r_len = cp.Protocol.get_len(hdr)
 				# Receive request payload
-				data = self.socket.recv(r_len)
-				if len(data) < r_len:
-					self.log.warning("Dropped request. Should increase timeout?")
-					continue
+				if r_len > 0:
+					data = self.socket.recv(r_len)
+					if len(data) < r_len:
+						self.log.warning("Dropped request. Should increase timeout?")
+						continue
+				else:
+					data = ''
 				# Unpack the request
 				d = cp.Protocol.unpack(hdr + data)
 				self.log.debug("Request: {}".format(d))
@@ -79,6 +87,9 @@ class ClientThread(threading.Thread):
 					self.state += 1
 					# TODO:: Any auth?
 					# TODO:: Send the current version of the whole document.
+
+				elif msg.id == cp.Protocol.REQ_TEXT:
+					msg.name = self.name
 
 				elif msg.id == cp.Protocol.REQ_SET_CURPOS:
 					self.cursor_pos = msg.cursor

@@ -72,9 +72,11 @@ class Protocol():
 	def res_text(text):
 		btext = bytearray(text, "utf8")
 		blen = len(btext)
+		# TODO:: Should we have timestamp here, as well?
+		# Or some kind of a commit hash?
 		req = struct.pack(
 				"<BII{}s".format(blen),
-				Protocol.REQ_TEXT,
+				Protocol.RES_TEXT,
 				blen + 4, blen,
 				str(btext))
 		return req
@@ -124,6 +126,14 @@ class Protocol():
 		return req
 
 	@staticmethod
+	def req_text():
+		req = struct.pack(
+				"<BI", 
+				Protocol.REQ_TEXT, 
+				0)
+		return req
+
+	@staticmethod
 	def get_len(breq_original):
 		breq = bytearray(breq_original)
 		r_id, r_len = struct.unpack("<BI", breq[:5])
@@ -157,7 +167,7 @@ class Protocol():
 			blen, btext = struct.unpack(
 					"<I{}s".format(r_len - 4),
 					breq)
-			d["text"] = bname.decode("utf-8")
+			d["text"] = btext.decode("utf-8")
 		# Insert text?
 		elif r_id == Protocol.REQ_INSERT:
 			blen, btext = struct.unpack(

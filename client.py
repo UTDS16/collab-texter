@@ -122,15 +122,22 @@ class Client():
 					self.state = Client.STAT_JOINED
 					msg = cp.Message(d, True)
 					self.queue_sc.put(msg)
-
-					# TODO:: Wait for whole-text download first.
-					self.state = Client.STAT_EDITING
+					# Get the whole text that's written so far.
+					self.get_whole_text()
 			# Some kind of an error?
 			elif d["id"] == cp.Protocol.RES_ERROR:
 				self.log.error("Server error {}".format(d["error"]))
 			# Someone inserted text?
 			elif d["id"] == cp.Protocol.RES_INSERT:
 				self.log.debug(d)
+				if self.state == Client.STAT_EDITING:
+					msg = cp.Message(d, True)
+					self.queue_sc.put(msg)
+			# We've received full text?
+			elif d["id"] == cp.Protocol.RES_TEXT:
+				self.log.debug(d)
+				if self.state == Client.STAT_JOINED:
+					self.state = Client.STAT_EDITING
 				if self.state == Client.STAT_EDITING:
 					msg = cp.Message(d, True)
 					self.queue_sc.put(msg)
@@ -151,6 +158,11 @@ class Client():
 		elif op == cp.Protocol.REQ_SET_CURPOS:
 			req = cp.Protocol.req_set_cursor_pos(x, y)
 			self.socket.sendall(req)
+	
+	def get_whole_text(self):
+		self.log.debug("Requesting for whole text")
+		req = cp.Protocol.req_text()
+		self.socket.sendall(req)
 	
 	@staticmethod
 	def close():
@@ -240,6 +252,17 @@ class Editor(urwid.ListBox):
 		line = self.lines[y].get_text()[0]
 		line = line[:x] + text + line[x:]
 		self.lines[y].set_edit_text(line)
+
+	def set_text(self, text):
+		# TODO:: Merge?
+		new_lines = text.split('\n')
+		for i in range(0, len(new_lines)):
+			# Append an empty line, if needed.
+			if i >= len(self.lines):
+				self.insert_line((0, i))
+			self.log.debug("Setting line {} to \"{}\"".format(i, new_lines[i]))
+			# Set its contents.
+			self.lines[i].set_edit_text(new_lines[i])
 
 	"""
 	Text has changed.
@@ -452,6 +475,9 @@ class GUI():
 				self.focus_text()
 				self.gui_log("Joined")
 				self.gui_status(("status-ok", "Editing"))
+			# We've received full text?
+			elif msg.id == cp.Protocol.RES_TEXT:
+				self.e_text.set_text(msg.text)
 			# Someone inserted some text?
 			elif msg.id == cp.Protocol.RES_INSERT:
 				(x, y) = msg.cursor
@@ -476,7 +502,7 @@ class GUI():
 		raise urwid.ExitMainLoop()
 
 def init_logging():
-	log = Client.get_log()
+	log = logging.getLogger("CT")
 	log.setLevel(logging.DEBUG)
 
 	handler = logging.FileHandler("log_client.txt")
