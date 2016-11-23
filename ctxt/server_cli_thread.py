@@ -7,7 +7,7 @@ import threading
 import logging
 import struct
 import socket
-import queue
+import Queue as queue
 
 class ClientThread(threading.Thread):
 	LOGNAME = "CT.Server.Thread"

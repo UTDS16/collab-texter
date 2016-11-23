@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python
 
 import ctxt.document as cd
 from ctxt.borg import Borg
@@ -10,7 +10,7 @@ import threading
 import logging
 import signal
 import struct
-import queue
+import Queue as queue
 
 
 class Server(Borg):

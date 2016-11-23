@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python
 
 import ctxt.document as cd
 from ctxt.borg import Borg
@@ -12,7 +12,7 @@ import signal
 import struct
 import string
 import urwid
-import queue
+import Queue as queue
 
 class Client():
 	LOGNAME = "CT.Client"

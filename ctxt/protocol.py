@@ -14,16 +14,30 @@ Request structure:
 """
 
 class Protocol():
-	RES_OK = 0x00
-	RES_ERROR = 0x01
-	RES_INSERT = 0x0E
+	# Minimum request length (header only)
 	MIN_REQ_LEN = 5
 
+	# Response: Request was okay
+	RES_OK = 0x00
+	# Response: Request was erroneous
+	RES_ERROR = 0x01
+	# Response: Text has been inserted
+	RES_INSERT = 0x0E
+	# Response: The text so far
+	RES_TEXT = 0x0F
+
+	# Request to join the active document
 	REQ_JOIN = 0x21
+	# Request to leave
 	REQ_LEAVE = 0x22
 
+	# Request for full text
+	REQ_TEXT = 0xE0
+	# Request to insert text
 	REQ_INSERT = 0xE1
+	# Request to get current cursor position
 	REQ_GET_CURPOS = 0xE2
+	# Request to set cursor position
 	REQ_SET_CURPOS = 0xE3
 
 	# Internal close request
@@ -50,9 +64,20 @@ class Protocol():
 				Protocol.RES_INSERT,
 				bnlen + btlen + 16,
 				x, y,
-				bnlen, bname,
-				btlen, btext)
+				bnlen, str(bname),
+				btlen, str(btext))
 		return res
+
+	@staticmethod
+	def res_text(text):
+		btext = bytearray(text, "utf8")
+		blen = len(btext)
+		req = struct.pack(
+				"<BII{}s".format(blen),
+				Protocol.REQ_TEXT,
+				blen + 4, blen,
+				str(btext))
+		return req
 	
 	@staticmethod
 	def req_join(name):
@@ -62,7 +87,7 @@ class Protocol():
 				"<BII{}s".format(blen),
 				Protocol.REQ_JOIN,
 				blen + 4, blen,
-				bname)
+				str(bname))
 		return req
 
 	@staticmethod
@@ -79,7 +104,7 @@ class Protocol():
 				"<BII{}s".format(blen),
 				Protocol.REQ_INSERT,
 				blen + 4, blen,
-				btext)
+				str(btext))
 		return req
 
 	@staticmethod
@@ -124,6 +149,15 @@ class Protocol():
 		elif r_id == Protocol.REQ_LEAVE:
 			# No arguments here.
 			pass
+		# A full text request?
+		elif r_id == Protocol.REQ_TEXT:
+			# No arguments
+			pass
+		elif r_id == Protocol.RES_TEXT:
+			blen, btext = struct.unpack(
+					"<I{}s".format(r_len - 4),
+					breq)
+			d["text"] = bname.decode("utf-8")
 		# Insert text?
 		elif r_id == Protocol.REQ_INSERT:
 			blen, btext = struct.unpack(
