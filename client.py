@@ -1,18 +1,14 @@
 #!/usr/bin/python
+import Queue as queue
+import argparse
+import errno
+import logging
+import socket
 
-import ctxt.document as cd
-from ctxt.borg import Borg
+import urwid
+
 import ctxt.protocol as cp
 import ctxt.util as cu
-import socket
-import argparse
-import threading
-import logging
-import signal
-import struct
-import string
-import urwid
-import Queue as queue
 
 """
 A client class for low-level production of requests and handling of responses.
@@ -156,7 +152,7 @@ class Client():
 					self.queue_sc.put(msg)
 		except socket.error as e:
 			# Skip "Resource temporarily unavailable".
-			if e.errno not in [11]:
+			if e.errno not in [errno.EWOULDBLOCK]:
 				self.log.exception(e)
 		except Exception as e:
 			self.log.exception(e)

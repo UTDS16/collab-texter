@@ -1,16 +1,15 @@
 #!/usr/bin/python
-
-import ctxt.document as cd
-from ctxt.borg import Borg
-from ctxt.server_cli_thread import ClientThread
-import ctxt.protocol as cp
-import socket
+import Queue as queue
 import argparse
-import threading
+import errno
 import logging
 import signal
-import struct
-import Queue as queue
+import socket
+
+import ctxt.document as cd
+import ctxt.protocol as cp
+from ctxt.borg import Borg
+from ctxt.server_cli_thread import ClientThread
 
 """
 A server Borg, whatever that means. Ask Alex Martelli.
@@ -89,7 +88,7 @@ class Server(Borg):
 				self.clients.append([source, t])
 
 			except socket.error as e:
-				if e.errno not in [11]:
+				if e.errno not in [errno.EWOULDBLOCK]:
 					self.log.exception(e)
 			except Exception as e:
 				if self.online:
