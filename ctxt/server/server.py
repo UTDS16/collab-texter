@@ -69,7 +69,7 @@ Anyways, it's a simpleton.
 					# Request to insert some text?
 					if msg.id == cp.Protocol.REQ_INSERT:
 						# Update our copy of the document.
-						self.document.insert(msg.cursor, msg.text)
+						self.document.insert(msg.version, msg.cursor, msg.text)
 						# No longer a request. It's now a response.
 						msg.id = cp.Protocol.RES_INSERT
 
@@ -78,6 +78,7 @@ Anyways, it's a simpleton.
 					elif msg.id == cp.Protocol.REQ_TEXT:
 						msg.id = cp.Protocol.RES_TEXT
 						msg.text = self.document.get_whole()
+						msg.version = self.document.get_version()
 
 						self.send_to(msg)
 				# New clients?

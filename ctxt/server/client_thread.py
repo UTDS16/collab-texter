@@ -11,8 +11,8 @@ import Queue as queue
 
 class ClientThread(threading.Thread):
 	"""
-A thread for the server connection to a client.
-"""
+	A thread for the server connection to a client.
+	"""
 	LOGNAME = "CT.Server.Thread"
 
 	# Is the client still a stranger?
@@ -43,19 +43,19 @@ A thread for the server connection to a client.
 		# From Server to Client
 		self.queue_sc = queue.Queue()
 
-		self.cursor_pos = (0, 0)
+		self.cursor_pos = 0
 	
 	def __repr__(self):
 		"""
-	Useful for logging with client source (helps to tell them apart).
-	Nicknames would be better, but we don't know the name at first.
-	"""
+		Useful for logging with client source (helps to tell them apart).
+		Nicknames would be better, but we don't know the name at first.
+		"""
 		return ClientThread.LOGNAME + "({}, {})".format(self.address, self.port)
 
-	"""
-	Thread loop until the client is "online".
-	"""
 	def run(self):
+		"""
+		Thread loop until the client is "online".
+		"""
 		self.online = True
 		while self.online:
 			try:
@@ -69,14 +69,14 @@ A thread for the server connection to a client.
 					else:
 						# Forward inserts.
 						if msg.id == cp.Protocol.RES_INSERT:
-							x, y = msg.cursor
-							self.log.debug(u"Forwarding insert {}:({}, {}):{}".format(msg.name, x, y, msg.text))
-							res = cp.Protocol.res_insert(msg.name, x, y, msg.text)
+							self.log.debug(u"Forwarding insert {}:{}:{} (version {})".format(
+								msg.name, msg.cursor, msg.text, msg.version))
+							res = cp.Protocol.res_insert(msg.name, msg.version, msg.cursor, msg.text)
 							self.socket.sendall(res)
 						# Forward full text responses.
 						elif msg.id == cp.Protocol.RES_TEXT:
 							self.log.debug(u"Forwarding full text to {}".format(msg.name))
-							res = cp.Protocol.res_text(msg.text)
+							res = cp.Protocol.res_text(msg.version, str(msg.text))
 							self.socket.sendall(res)
 
 				# Receive request header
@@ -113,7 +113,6 @@ A thread for the server connection to a client.
 					msg.name = self.name
 
 				elif msg.id == cp.Protocol.REQ_INSERT:
-					msg.cursor = self.cursor_pos
 					msg.name = self.name
 
 				# Forward to the server
@@ -139,7 +138,7 @@ A thread for the server connection to a client.
 
 	def get_name(self):
 		"""
-	Get the nickname.
-	A pointless function, really.
-	"""
+		Get the nickname.
+		A pointless function, really.
+		"""
 		return self.name

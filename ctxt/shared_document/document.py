@@ -15,7 +15,7 @@ TODO:: Perhaps figure out, how to use it for the GUI as well
 		self.log = logging.getLogger("CT.Document")
 
 		# List of lines.
-		self.lines = []
+		self.text = u""
 
 		self.unsaved_changes = True
 		# TODO:: Should we have the same class on the client
@@ -25,42 +25,26 @@ TODO:: Perhaps figure out, how to use it for the GUI as well
 		self.hash = cu.gen_random_string(32)
 		self.local_filepath = "storage/{}.txt".format(self.hash)
 
-	def insert(self, cursor, text):
+	def insert(self, version, cursor, text):
 		"""
-	Insert text at a specific cursor position.
-	"""
-		(x, y) = cursor
-		# Basically need to append to the text?
-		if y > len(self.lines):
-			self.log.warning("Cursor ({}, {}) and line number ({}) mismatch".format(x, y, len(self.lines)))
-			y = len(self.lines)
-		# This insertion is the first of its kind?
-		if self.lines == [] or y == len(self.lines):
-			line = ""
-		else:
-			line = self.lines[y]
-		# Append to the line?
-		if x > len(line):
-			self.log.warning("Cursor ({}, {}) and line length ({}) mismatch".format(x, y, len(line)))
-			x = len(line)
-
-		# TODO:: Support for multiline insertions.
-
-		if self.lines == [] or y == len(self.lines):
-			self.lines.append(text)
-		else:
-			self.lines[y] = line[:x] + text + line[x:]
+		Insert text at a specific cursor position.
+		"""
+		print "Cursor: {}".format(cursor)
+		self.text = self.text[:cursor] + text + self.text[cursor:]
 
 	def get_whole(self):
 		"""
-	Gets the whole text as a single string.
-	"""
-		return u'\n'.join(self.lines)
+		Gets the whole text as a single string.
+		"""
+		return self.text
+
+	def get_version(self):
+		return 0
 
 	def store(self):
 		"""
-	Stores the document in a file.
-	"""
+		Stores the document in a file.
+		"""
 		try:
 			if self.unsaved_changes:
 				self.log.info("Writing to file..")
