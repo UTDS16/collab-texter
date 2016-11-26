@@ -1,0 +1,7 @@
+<RCC>
+  <qresource prefix="connection">
+    <file alias="connect">icons/plug-connect.png</file>
+    <file alias="error">icons/plug-disconnect-slash.png</file>
+    <file alias="disconnect">icons/plug-disconnect.png</file>
+  </qresource>
+</RCC>
