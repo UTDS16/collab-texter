@@ -9,10 +9,10 @@ import struct
 import socket
 import Queue as queue
 
-"""
+class ClientThread(threading.Thread):
+	"""
 A thread for the server connection to a client.
 """
-class ClientThread(threading.Thread):
 	LOGNAME = "CT.Server.Thread"
 
 	# Is the client still a stranger?
@@ -45,11 +45,11 @@ class ClientThread(threading.Thread):
 
 		self.cursor_pos = (0, 0)
 	
-	"""
+	def __repr__(self):
+		"""
 	Useful for logging with client source (helps to tell them apart).
 	Nicknames would be better, but we don't know the name at first.
 	"""
-	def __repr__(self):
 		return ClientThread.LOGNAME + "({}, {})".format(self.address, self.port)
 
 	"""
@@ -137,9 +137,9 @@ class ClientThread(threading.Thread):
 		self.log.info("Closing socket")
 		self.socket.close()
 
-	"""
+	def get_name(self):
+		"""
 	Get the nickname.
 	A pointless function, really.
 	"""
-	def get_name(self):
 		return self.name

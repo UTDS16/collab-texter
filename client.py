@@ -10,10 +10,10 @@ import urwid
 import ctxt.protocol as cp
 import ctxt.util as cu
 
-"""
+class Client():
+	"""
 A client class for low-level production of requests and handling of responses.
 """
-class Client():
 	LOGNAME = "CT.Client"
 
 	# Whether or not the client is supposed to be running.
@@ -31,11 +31,11 @@ class Client():
 	# We've received the full text, will edit it.
 	STAT_EDITING = 5
 
-	"""
-	Get client log.
-	"""
 	@staticmethod
 	def get_log():
+		"""
+	Get client log.
+	"""
 		return logging.getLogger(Client.LOGNAME)
 
 	def __init__(self):
@@ -48,10 +48,10 @@ class Client():
 
 		log.info("Starting the client")
 
-	"""
+	def connect(self, address="127.0.0.1", port=7777):
+		"""
 	Connect to a server at a specific address and port.
 	"""
-	def connect(self, address="127.0.0.1", port=7777):
 		try:
 			self.state = Client.STAT_CONNECTING
 
@@ -77,20 +77,20 @@ class Client():
 			return False
 		return True
 
-	"""
+	def join_doc(self, name):
+		"""
 	Send a join request (with our nickname).
 	"""
-	def join_doc(self, name):
 		self.state = Client.STAT_JOINING
 		self.name = name
 
 		req = cp.Protocol.req_join(name)
 		self.socket.sendall(req)
 
-	"""
+	def update(self):
+		"""
 	Check for messages waiting in socket buffer.
 	"""
-	def update(self):
 		if not self.socket or not self.online:
 			return
 		if not self.online:
@@ -157,11 +157,11 @@ class Client():
 		except Exception as e:
 			self.log.exception(e)
 
-	"""
+	def send_text_change(self, widget, change):
+		"""
 	Confess to the great Server that we've sinned in
 	letting the text change. The Server will handle this issue.
 	"""
-	def send_text_change(self, widget, change):
 		x, y, op, text = change
 		# It's an insert request?
 		if op == cp.Protocol.REQ_INSERT:
@@ -175,28 +175,28 @@ class Client():
 			req = cp.Protocol.req_set_cursor_pos(x, y)
 			self.socket.sendall(req)
 	
-	"""
+	def get_whole_text(self):
+		"""
 	Request for the whole text.
 	Very useful in cases when the client has recovered from
 	connection errors. Should call it then, I suppose.
 	"""
-	def get_whole_text(self):
 		self.log.debug("Requesting for whole text")
 		req = cp.Protocol.req_text()
 		self.socket.sendall(req)
 
-	"""
-	Signal for the client to close on the next update.
-	"""
 	@staticmethod
 	def close():
+		"""
+	Signal for the client to close on the next update.
+	"""
 		Client.online = False
 
-"""
+class Editor(urwid.ListBox):
+	"""
 A custom editor widget for multiline text editing.
 It's based on a listbox with single line Edit widgets.
 """
-class Editor(urwid.ListBox):
 	# Name for logging.
 	LOGNAME = "CT.Client.GUI.Editor"
 	# Widget signals.
@@ -209,10 +209,10 @@ class Editor(urwid.ListBox):
 		self.insert_line()
 		self.__super.__init__(self.lines)
 
-	"""
+	def insert_line(self, cursor=None):
+		"""
 	Insert a line at the cursor position.
 	"""
-	def insert_line(self, cursor=None):
 		# Create a new editbox widget.
 		edit = urwid.Edit()
 		# This Edit is the first of its kind?
@@ -241,10 +241,10 @@ class Editor(urwid.ListBox):
 		# We might be interested in the signal. Let's register, just in case.
 		urwid.connect_signal(edit, "change", self.text_changed)
 
-	"""
+	def remove_line(self, cursor=None, before=False, after=False):
+		"""
 	Remove a line at the cursor position.
 	"""
-	def remove_line(self, cursor=None, before=False, after=False):
 		if len(self.lines) > 0:
 			if cursor == None:
 				# Get current cursor position.
@@ -270,10 +270,10 @@ class Editor(urwid.ListBox):
 				del self.lines[y + 1]
 			self.focus_line(y)
 	
-	"""
+	def insert_text(self, text, cursor=None):
+		"""
 	Insert a bunch of text at the cursor (defaults to current cursor).
 	"""
-	def insert_text(self, text, cursor=None):
 		# No lines yet? Let's create one.
 		if self.lines == []:
 			self.insert_line(cursor)
@@ -301,10 +301,10 @@ class Editor(urwid.ListBox):
 		# Update the line.
 		self.lines[y].set_edit_text(line)
 
-	"""
+	def set_text(self, text):
+		"""
 	Set the whole text, to make sure it's up to date.
 	"""
-	def set_text(self, text):
 		# TODO:: Merge?
 		new_lines = text.split('\n')
 		for i in range(0, len(new_lines)):
@@ -315,28 +315,28 @@ class Editor(urwid.ListBox):
 			# Set its contents.
 			self.lines[i].set_edit_text(new_lines[i])
 
-	"""
+	def text_changed(self, widget, line):
+		"""
 	Text has changed.
 	"""
-	def text_changed(self, widget, line):
 		# Keypress handler should be a better candidate for
 		# updating the server about any changes, because
 		# there we can have both the old as well as the new version of the active line.
 		pass
 
-	"""
+	def focus_line(self, line_num=-1):
+		"""
 	Focus on a specific line, or last line (-1).
 	"""
-	def focus_line(self, line_num=-1):
 		if line_num < 0:
 			self.set_focus(len(self.lines) - 1)
 		else:
 			self.set_focus(line_num)
 
-	"""
+	def get_pos(self):
+		"""
 	Get the current cursor position (x, y).
 	"""
-	def get_pos(self):
 		# TODO:: Take unicode into account.
 
 		y = self.focus_position
@@ -345,10 +345,10 @@ class Editor(urwid.ListBox):
 		x, _ = self.lines[y].get_cursor_coords((1000000,))
 		return (x, y)
 
-	"""
+	def keypress(self, size, key):
+		"""
 	Handle unhandled keypresses.
 	"""
-	def keypress(self, size, key):
 		# Remember the old cursor position.
 		(x, y) = self.get_pos()
 		# Have the superclass handle the key first.
@@ -382,10 +382,10 @@ class Editor(urwid.ListBox):
 		return retval
 
 
-"""
+class GUI():
+	"""
 A graphical user interface class with urwid (!)
 """
-class GUI():
 	# Urwid color palette
 	palette = [
 			('body', 'default', 'default'),
@@ -410,10 +410,10 @@ class GUI():
 	def __del__(self):
 		self.client.close()
 	
-	"""
+	def init_gui_srv(self, address, port, name):
+		"""
 	Initialize the subwindow for server connection.
 	"""
-	def init_gui_srv(self, address, port, name):
 		# Note: Cannot pile plain widgets without vertical fillers.
 
 		# Server address textbox.
@@ -440,18 +440,18 @@ class GUI():
 			self.bf_connect, self.bf_exit])
 		return self.c_srv
 
-	"""
+	def init_gui_log(self):
+		"""
 	Initialize the subwindow for some log messages.
 	"""
-	def init_gui_log(self):
 		self.l_log = urwid.Text("Not connected")
 		self.c_log = urwid.Filler(self.l_log, valign='top')
 		return self.c_log
 
-	"""
+	def init_gui_text(self):
+		"""
 	Initialize the text editor subwindow.
 	"""
-	def init_gui_text(self):
 		self.e_text = Editor()
 
 		# Create a subwindow with an outlined box and the text editor on top of that.
@@ -471,10 +471,10 @@ class GUI():
 
 		return self.c_text
 
-	"""
+	def init_gui(self, address, port, name):
+		"""
 	Initialize the GUI with supplied values for the address, port and user nickname.
 	"""
-	def init_gui(self, address, port, name):
 		self.l_title = urwid.Text("Collaborative Text Editor Client")
 		self.l_status = urwid.Text(("status-nok", "Not connected yet"))
 
@@ -495,45 +495,45 @@ class GUI():
 
 		self.c_frame = urwid.Frame(self.c_body, self.l_title, self.l_status)
 
-	"""
+	def focus_srv(self):
+		"""
 	Focus on the connection subwindow.
 	"""
-	def focus_srv(self):
 		self.c_body.set_focus(1)
 
-	"""
+	def focus_text(self, line_num=-1):
+		"""
 	Focus on the text editor and a specific line in the editor (last line, by default).
 	"""
-	def focus_text(self, line_num=-1):
 		self.c_body.set_focus(0)
 		self.e_text.focus_line(line_num)
 	
-	"""
+	def key_handler(self, key):
+		"""
 	Handle unhandled keys.
 	"""
-	def key_handler(self, key):
 		# All the keys to quit.
 		if key in ('q', 'Q', 'x', 'X', "esc"):
 			self.stop()
 		return key
 
-	"""
+	def gui_log(self, message):
+		"""
 	Write a line into the log subwindow.
 	"""
-	def gui_log(self, message):
 		self.l_log.set_text(self.l_log.text + "\n" + message)
 		self.log.info(message)
 
-	"""
+	def gui_status(self, message):
+		"""
 	Set the status message in the footer.
 	"""
-	def gui_status(self, message):
 		self.l_status.set_text(message)
 
-	"""
+	def connect(self, button):
+		"""
 	Connect to a server.
 	"""
-	def connect(self, button):
 		# Take address and port number from the respective editboxes.
 		address = self.e_srv_addr.edit_text
 		port = int(self.e_srv_port.edit_text)
@@ -548,11 +548,11 @@ class GUI():
 			self.gui_log("Joining as {}".format(name))
 			self.client.join_doc(name)
 
-	"""
+	def update(self, loop=None, user_data=None):
+		"""
 	Check for any updates from the server,
 	and schedule the next update.
 	"""
-	def update(self, loop=None, user_data=None):
 		self.client.update()
 
 		if not self.client.queue_sc.empty():
@@ -575,26 +575,26 @@ class GUI():
 
 		self.loop.set_alarm_in(self.update_period, self.update)
 
-	"""
+	def start(self):
+		"""
 	Start the main loop with an update callback issued at a period of self.update_period.
 	"""
-	def start(self):
 		self.loop = urwid.MainLoop(self.c_frame, palette=self.palette, unhandled_input=self.key_handler)
 		self.loop.set_alarm_in(self.update_period, self.update)
 		self.loop.run()
 
-	"""
+	def stop(self, button=None):
+		"""
 	Stop the client.
 	"""
-	def stop(self, button=None):
 		self.log.info("Closing the shop")
 		self.client.close()
 		raise urwid.ExitMainLoop()
 
-"""
+def init_logging():
+	"""
 Initialize logging for the application.
 """
-def init_logging():
 	log = logging.getLogger("CT")
 	log.setLevel(logging.DEBUG)
 

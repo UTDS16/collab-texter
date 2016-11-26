@@ -11,19 +11,19 @@ import ctxt.protocol as cp
 from ctxt.borg import Borg
 from ctxt.server_cli_thread import ClientThread
 
-"""
+class Server(Borg):
+	"""
 A server Borg, whatever that means. Ask Alex Martelli.
 Anyways, it's a simpleton.
 """
-class Server(Borg):
 	TCP_CLIENTS_QUEUE_LEN = 10
 	LOGNAME = "CT.Server"
 
-	"""
-	Get server log.
-	"""
 	@staticmethod
 	def get_log():
+		"""
+	Get server log.
+	"""
 		return logging.getLogger(Server.LOGNAME)
 
 	def __init__(self):
@@ -41,10 +41,10 @@ class Server(Borg):
 		# Queue for Client -> Server messages.
 		self.queue_cs = queue.Queue()
 
-	"""
+	def listen(self, address='127.0.0.1', port=7777):
+		"""
 	Start listening for incoming connections.
 	"""
-	def listen(self, address='127.0.0.1', port=7777):
 		self.online = True
 
 		# Create a TCP socket.
@@ -116,10 +116,10 @@ class Server(Borg):
 		else:
 			self.log.info("No client threads to join")
 
-	"""
+	def share_to_others(self, msg):
+		"""
 	Share a message to all others (except the author).
 	"""
-	def share_to_others(self, msg):
 		# Propagate the message to other clients.
 		for client in self.clients:
 			if client != None and len(client) == 2:
@@ -128,10 +128,10 @@ class Server(Borg):
 				if t.get_name() != msg.name:
 					t.queue_sc.put(msg)
 
-	"""
+	def send_to(self, msg):
+		"""
 	Send a message to one specific client.
 	"""
-	def send_to(self, msg):
 		# Send to a specific client.
 		for client in self.clients:
 			if client != None and len(client) == 2:
@@ -140,16 +140,16 @@ class Server(Borg):
 					t.queue_sc.put(msg)
 					return
 
-	"""
+	def close(self):
+		"""
 	Close the server on the next update.
 	"""
-	def close(self):
 		self.online = False
 
-"""
+def init_logging():
+	"""
 Initialize logging.
 """
-def init_logging():
 	log = logging.getLogger("CT")
 	log.setLevel(logging.DEBUG)
 
@@ -164,10 +164,10 @@ def init_logging():
 
 	return log
 
-"""
+def signal_handler(signum, frame):
+	"""
 Custom signal handler for SIGINT, SIGTERM.
 """
-def signal_handler(signum, frame):
 	# Reference the one and only Server.
 	server = Server.get_instance()
 

@@ -13,10 +13,10 @@ Request structure:
 	Arguments (REQ_LEN B)
 """
 
-"""
+class Protocol():
+	"""
 Protocol for requests and responses.
 """
-class Protocol():
 	# Minimum request length (header only)
 	MIN_REQ_LEN = 5
 
@@ -110,11 +110,11 @@ class Protocol():
 				str(bname))
 		return req
 
-	"""
-	Client asks for a leave.
-	"""
 	@staticmethod
 	def req_leave():
+		"""
+	Client asks for a leave.
+	"""
 		req = struct.pack(
 				"<B", Protocol.REQ_LEAVE)
 		return req
@@ -146,43 +146,43 @@ class Protocol():
 				0)
 		return req
 
-	"""
-	Request for moving the current cursor position on the remote.
-	"""
 	@staticmethod
 	def req_set_cursor_pos(x, y):
+		"""
+	Request for moving the current cursor position on the remote.
+	"""
 		req = struct.pack(
 				"<BIII", 
 				Protocol.REQ_SET_CURPOS,
 				8, x, y)
 		return req
 
-	"""
-	Request for the full text that is being edited by others.
-	"""
 	@staticmethod
 	def req_text():
+		"""
+	Request for the full text that is being edited by others.
+	"""
 		req = struct.pack(
 				"<BI", 
 				Protocol.REQ_TEXT, 
 				0)
 		return req
 
-	"""
-	Extract request length from request header binary.
-	"""
 	@staticmethod
 	def get_len(breq_original):
+		"""
+	Extract request length from request header binary.
+	"""
 		breq = bytearray(breq_original)
 		r_id, r_len = struct.unpack("<BI", breq[:5])
 
 		return r_len
 
-	"""
-	Extract request or response parameters from binary.
-	"""
 	@staticmethod
 	def unpack(breq_original):
+		"""
+	Extract request or response parameters from binary.
+	"""
 		breq = bytearray(breq_original)
 
 		# Extract request ID and length.
@@ -248,10 +248,10 @@ class Protocol():
 			d["error"] = error
 		return d
 
-"""
+class Message():
+	"""
 Class for describing the messages to be passed up & down the queues.
 """
-class Message():
 	def __init__(self, d, internal=False):
 		self.__dict__ = d
 		# An internal message (not propagated to authors)?

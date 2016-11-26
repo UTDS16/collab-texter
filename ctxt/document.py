@@ -5,12 +5,12 @@ Document class.
 import logging
 import ctxt.util as cu
 
-"""
+class Document:
+	"""
 A document class to handle insertions.
-TODO:: Perhaps figure out, how to use it for the GUI as well 
+TODO:: Perhaps figure out, how to use it for the GUI as well
 (would avoid duplication of code on client and server).
 """
-class Document:
 	def __init__(self):
 		self.log = logging.getLogger("CT.Document")
 
@@ -25,10 +25,10 @@ class Document:
 		self.hash = cu.gen_random_string(32)
 		self.local_filepath = "storage/{}.txt".format(self.hash)
 
-	"""
+	def insert(self, cursor, text):
+		"""
 	Insert text at a specific cursor position.
 	"""
-	def insert(self, cursor, text):
 		(x, y) = cursor
 		# Basically need to append to the text?
 		if y > len(self.lines):
@@ -51,16 +51,16 @@ class Document:
 		else:
 			self.lines[y] = line[:x] + text + line[x:]
 
-	"""
+	def get_whole(self):
+		"""
 	Gets the whole text as a single string.
 	"""
-	def get_whole(self):
 		return u'\n'.join(self.lines)
 
-	"""
+	def store(self):
+		"""
 	Stores the document in a file.
 	"""
-	def store(self):
 		try:
 			if self.unsaved_changes:
 				self.log.info("Writing to file..")

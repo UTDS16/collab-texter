@@ -12,9 +12,9 @@ class Borg:
 		# Every new instance gets the same state as the first one.
 		self.__dict__ = self._shared_state
 
-	"""
-	Gets the one and only instance of the class.
-	"""
 	@staticmethod
 	def get_instance():
+		"""
+	Gets the one and only instance of the class.
+	"""
 		return Borg()
