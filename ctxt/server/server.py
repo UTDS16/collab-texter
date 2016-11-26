@@ -7,9 +7,11 @@ import signal
 import socket
 
 import ctxt.document as cd
+from ctxt.server_cli_thread import ClientThread
+
 import ctxt.protocol as cp
 from ctxt.borg import Borg
-from ctxt.server_cli_thread import ClientThread
+
 
 class Server(Borg):
 	"""
@@ -105,7 +107,7 @@ Anyways, it's a simpleton.
 		if len(self.clients) > 0:
 			self.log.info("Joining threads")
 
-			msg = cp.Message({"id":cp.Protocol.REQ_INT_CLOSE}, True)
+			msg = cp.Message({"id": cp.Protocol.REQ_INT_CLOSE}, True)
 
 			for client in self.clients:
 				if len(client) == 2:
@@ -146,6 +148,7 @@ Anyways, it's a simpleton.
 	"""
 		self.online = False
 
+
 def init_logging():
 	"""
 Initialize logging.
@@ -164,6 +167,7 @@ Initialize logging.
 
 	return log
 
+
 def signal_handler(signum, frame):
 	"""
 Custom signal handler for SIGINT, SIGTERM.
@@ -178,8 +182,9 @@ Custom signal handler for SIGINT, SIGTERM.
 
 	# And close down the Server.
 	server.online = False
-	
-if __name__ == '__main__':
+
+
+def main():
 	# Register signal handlers for SIGINT, SIGTERM.
 	signal.signal(signal.SIGINT, signal_handler)
 	signal.signal(signal.SIGTERM, signal_handler)
@@ -191,4 +196,8 @@ if __name__ == '__main__':
 
 	log = init_logging()
 	server = Server()
-	server.listen(port = args.port)
+	server.listen(port=args.port)
+
+
+if __name__ == '__main__':
+	main()

@@ -609,10 +609,7 @@ Initialize logging for the application.
 
 	return log
 
-"""
-The Grand Main
-"""
-if __name__ == '__main__':
+def main():
 	parser = argparse.ArgumentParser(description="Collaborative Text Editor Client")
 	parser.add_argument('-a', '--address', dest='address', type=str, default="", help='server IP address')
 	parser.add_argument('-p', '--port', dest='port', type=int, default=0, help='server port number')
@@ -628,3 +625,9 @@ if __name__ == '__main__':
 		pass
 	except Exception as e:
 		log.exception(e)
+
+"""
+The Grand Main
+"""
+if __name__ == '__main__':
+	main()

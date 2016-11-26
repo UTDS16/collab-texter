@@ -14,3 +14,5 @@
 # Other random stuff
 *.db
 *.log
+*.egg-info/
+**/log_*.txt
