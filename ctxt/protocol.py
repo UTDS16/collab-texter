@@ -13,6 +13,9 @@ Request structure:
 	Arguments (REQ_LEN B)
 """
 
+"""
+Protocol for requests and responses.
+"""
 class Protocol():
 	# Minimum request length (header only)
 	MIN_REQ_LEN = 5
@@ -43,16 +46,25 @@ class Protocol():
 	# Internal close request
 	REQ_INT_CLOSE = 0xFF
 
+	"""
+	An "Okay" response to a specific request.
+	"""
 	@staticmethod
 	def res_ok(request_id):
 		return struct.pack("<BIB", Protocol.RES_OK, 1, request_id)
 
+	"""
+	A "No way" response with an error code.
+	"""
 	@staticmethod
 	def res_error(error):
 		return struct.pack(
 				"<BII", Protocol.RES_ERROR, 
 				4, error)
 	
+	"""
+	Response "Author (name) just wrote (text) at (x, y)."
+	"""
 	@staticmethod
 	def res_insert(name, x, y, text):
 		bname = bytearray(name, "utf8")
@@ -68,6 +80,9 @@ class Protocol():
 				btlen, str(btext))
 		return res
 
+	"""
+	Server says: "Here's thy doctrine"
+	"""
 	@staticmethod
 	def res_text(text):
 		btext = bytearray(text, "utf8")
@@ -80,7 +95,10 @@ class Protocol():
 				blen + 4, blen,
 				str(btext))
 		return req
-	
+
+	"""
+	Client: "May I, (name) join the document?"
+	"""
 	@staticmethod
 	def req_join(name):
 		bname = bytearray(name, "utf8")
@@ -92,12 +110,19 @@ class Protocol():
 				str(bname))
 		return req
 
+	"""
+	Client asks for a leave.
+	"""
 	@staticmethod
 	def req_leave():
 		req = struct.pack(
 				"<B", Protocol.REQ_LEAVE)
 		return req
 
+	"""
+	Request for an insertion of text on the remote.
+	Client: "Help, I accidentally type (text)"
+	"""
 	@staticmethod
 	def req_insert(text):
 		btext = bytearray(text, "utf8")
@@ -109,6 +134,10 @@ class Protocol():
 				str(btext))
 		return req
 
+	"""
+	Request for current cursor position on the remote.
+	Client: "Forgot where I was at"
+	"""
 	@staticmethod
 	def req_get_cursor_pos():
 		req = struct.pack(
@@ -117,6 +146,9 @@ class Protocol():
 				0)
 		return req
 
+	"""
+	Request for moving the current cursor position on the remote.
+	"""
 	@staticmethod
 	def req_set_cursor_pos(x, y):
 		req = struct.pack(
@@ -125,6 +157,9 @@ class Protocol():
 				8, x, y)
 		return req
 
+	"""
+	Request for the full text that is being edited by others.
+	"""
 	@staticmethod
 	def req_text():
 		req = struct.pack(
@@ -133,6 +168,9 @@ class Protocol():
 				0)
 		return req
 
+	"""
+	Extract request length from request header binary.
+	"""
 	@staticmethod
 	def get_len(breq_original):
 		breq = bytearray(breq_original)
@@ -140,13 +178,17 @@ class Protocol():
 
 		return r_len
 
+	"""
+	Extract request or response parameters from binary.
+	"""
 	@staticmethod
 	def unpack(breq_original):
 		breq = bytearray(breq_original)
 
+		# Extract request ID and length.
 		r_id, r_len = struct.unpack("<BI", breq[:5])
 		breq = breq[5:(5+r_len)]
-
+		# Create a dict of parameters.
 		d = {"id":r_id}
 
 		# Join
@@ -206,7 +248,11 @@ class Protocol():
 			d["error"] = error
 		return d
 
+"""
+Class for describing the messages to be passed up & down the queues.
+"""
 class Message():
 	def __init__(self, d, internal=False):
 		self.__dict__ = d
+		# An internal message (not propagated to authors)?
 		self.internal = internal

@@ -12,7 +12,10 @@ import signal
 import struct
 import Queue as queue
 
-
+"""
+A server Borg, whatever that means. Ask Alex Martelli.
+Anyways, it's a simpleton.
+"""
 class Server(Borg):
 	TCP_CLIENTS_QUEUE_LEN = 10
 	LOGNAME = "CT.Server"
@@ -31,9 +34,12 @@ class Server(Borg):
 
 		self.online = False
 		self.socket = None
+		# List of client threads with their source parameters.
 		self.clients = []
 
+		# A copy of the document that the clients are editing.
 		self.document = cd.Document()
+		# Queue for Client -> Server messages.
 		self.queue_cs = queue.Queue()
 
 	"""
@@ -110,7 +116,10 @@ class Server(Borg):
 					t.join()
 		else:
 			self.log.info("No client threads to join")
-	
+
+	"""
+	Share a message to all others (except the author).
+	"""
 	def share_to_others(self, msg):
 		# Propagate the message to other clients.
 		for client in self.clients:
@@ -119,7 +128,10 @@ class Server(Borg):
 				# Avoid forwarding messages to their author.
 				if t.get_name() != msg.name:
 					t.queue_sc.put(msg)
-	
+
+	"""
+	Send a message to one specific client.
+	"""
 	def send_to(self, msg):
 		# Send to a specific client.
 		for client in self.clients:
@@ -129,17 +141,24 @@ class Server(Borg):
 					t.queue_sc.put(msg)
 					return
 
+	"""
+	Close the server on the next update.
+	"""
 	def close(self):
 		self.online = False
 
+"""
+Initialize logging.
+"""
 def init_logging():
 	log = logging.getLogger("CT")
 	log.setLevel(logging.DEBUG)
 
-	handler = logging.FileHandler("log_server.txt")
+	# Log to file.
+	handler = logging.FileHandler("log_server.txt", encoding="UTF-8")
 	handler.setFormatter(logging.Formatter("[%(levelname)s: %(name)s]\t%(message)s"))
 	log.addHandler(handler)
-
+	# And log to stdout.
 	handler = logging.StreamHandler()
 	handler.setFormatter(logging.Formatter("[%(levelname)s: %(name)s]\t%(message)s"))
 	log.addHandler(handler)
@@ -150,13 +169,15 @@ def init_logging():
 Custom signal handler for SIGINT, SIGTERM.
 """
 def signal_handler(signum, frame):
+	# Reference the one and only Server.
 	server = Server.get_instance()
 
 	if signum == signal.SIGINT:
 		server.log.warning("Received SIGINT, closing server..")
 	elif signum == signal.SIGTERM:
 		server.log.warning("Received SIGTERM, closing server..")
-	
+
+	# And close down the Server.
 	server.online = False
 	
 if __name__ == '__main__':

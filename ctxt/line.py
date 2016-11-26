@@ -1,3 +1,4 @@
+# A class that's not really used
 
 """
 Each line consists of a string and some logic
