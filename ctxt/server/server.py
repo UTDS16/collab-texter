@@ -6,8 +6,8 @@ import logging
 import signal
 import socket
 
-import ctxt.document as cd
-from ctxt.server_cli_thread import ClientThread
+import ctxt.shared_document.document as cd
+from ctxt.server.client_thread import ClientThread
 
 import ctxt.protocol as cp
 from ctxt.borg import Borg
