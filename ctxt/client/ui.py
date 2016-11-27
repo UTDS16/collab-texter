@@ -1,4 +1,4 @@
-from PyQt4 import QtCore, QtGui
+from PyQt5 import QtCore, QtGui, QtWidgets
 from ctxt.client.ui_connect import Ui_ConnectDialog
 from ctxt.client.ui_main import Ui_MainWindow
 import ctxt.protocol as cp
@@ -6,7 +6,7 @@ import ctxt.util as cu
 
 import logging
 
-class ConnectDialog(QtGui.QDialog):
+class ConnectDialog(QtWidgets.QDialog):
 	"""
 	Connection dialog.
 	"""
@@ -55,9 +55,9 @@ class ConnectDialog(QtGui.QDialog):
 		dlg = ConnectDialog(parent, address, port, docname, nickname)
 		result = dlg.exec_()
 		# Fetch its results.
-		return (result == QtGui.QDialog.Accepted, dlg.address, dlg.port, dlg.nickname, dlg.docname)
+		return (result == QtWidgets.QDialog.Accepted, dlg.address, dlg.port, dlg.nickname, dlg.docname)
 
-class MainWindow(QtGui.QMainWindow):
+class MainWindow(QtWidgets.QMainWindow):
 	"""
 	The main window with the text editor.
 	"""
@@ -161,7 +161,7 @@ class MainWindow(QtGui.QMainWindow):
 			elif cu.u_is_printable(u):
 				self.req_insert(u)
 		# Handle the rest
-		return QtGui.QWidget.eventFilter(self, widget, event)
+		return QtWidgets.QWidget.eventFilter(self, widget, event)
 
 	def req_insert(self, text):
 		"""

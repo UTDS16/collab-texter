@@ -6,7 +6,7 @@ import logging
 import socket
 import sys
 
-from PyQt4 import QtCore, QtGui
+from PyQt5 import QtCore, QtGui, QtWidgets
 from ctxt.client.ui import MainWindow
 
 import ctxt.protocol as cp
@@ -230,7 +230,7 @@ def main():
 	log = init_logging()
 
 	try:
-		app = QtGui.QApplication(sys.argv)
+		app = QtWidgets.QApplication(sys.argv)
 		client = Client()
 		window = MainWindow(client)
 		if args.address != "":
