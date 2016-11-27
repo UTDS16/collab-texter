@@ -6,7 +6,7 @@ import logging
 import signal
 import socket
 
-import ctxt.shared_document.document as cd
+import ctxt.shared_document.shared_document as cd
 from ctxt.server.client_thread import ClientThread
 
 import ctxt.protocol as cp
@@ -39,7 +39,7 @@ Anyways, it's a simpleton.
 		self.clients = []
 
 		# A copy of the document that the clients are editing.
-		self.document = cd.Document()
+		self.document = cd.SharedDocument()
 		# Queue for Client -> Server messages.
 		self.queue_cs = queue.Queue()
 
