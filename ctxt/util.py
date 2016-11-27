@@ -23,6 +23,8 @@ def u_is_printable(c):
 	Check if a unicode character is printable.
 	"""
 	try:
+		if c == "":
+			return False
 		# Is the character printable?
 		if c in string.printable:
 			return True

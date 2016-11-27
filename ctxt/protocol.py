@@ -81,7 +81,7 @@ Protocol for requests and responses.
 		return res
 
 	@staticmethod
-	def res_text(version, text):
+	def res_text(version, cursor, text):
 		"""
 		Server says: "Here's thy doctrine"
 		Full text response.
@@ -91,9 +91,9 @@ Protocol for requests and responses.
 		# TODO:: Should we have timestamp here, as well?
 		# Or some kind of a commit hash?
 		req = struct.pack(
-				"<BIII{}s".format(blen),
+				"<BIIII{}s".format(blen),
 				Protocol.RES_TEXT,
-				blen + 8, version,
+				blen + 12, version, cursor,
 				blen, str(btext))
 		return req
 
@@ -218,9 +218,11 @@ Protocol for requests and responses.
 			# No arguments
 			pass
 		elif r_id == Protocol.RES_TEXT:
-			blen, btext = struct.unpack(
-					"<I{}s".format(r_len - 4),
+			version, cursor, blen, btext = struct.unpack(
+					"<III{}s".format(r_len - 12),
 					breq)
+			d["version"] = version
+			d["cursor"] = cursor
 			d["text"] = btext.decode("utf-8")
 		# Insert text?
 		elif r_id == Protocol.REQ_INSERT:

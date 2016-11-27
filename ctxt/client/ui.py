@@ -149,10 +149,11 @@ class MainWindow(QtGui.QMainWindow):
 		"""
 		if event.type() == QtCore.QEvent.KeyPress and widget == self.content.textEdit:
 			key = event.key()
+			u = unicode(event.text())
 			if key in [QtCore.Qt.Key_Return, QtCore.Qt.Key_Enter]:
 				self.req_insert('\n')
-			elif cu.i_is_printable(key):
-				self.req_insert(unichr(key))
+			elif cu.u_is_printable(u):
+				self.req_insert(u)
 		# Handle the rest
 		return QtGui.QWidget.eventFilter(self, widget, event)
 

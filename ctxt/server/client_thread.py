@@ -76,7 +76,7 @@ class ClientThread(threading.Thread):
 						# Forward full text responses.
 						elif msg.id == cp.Protocol.RES_TEXT:
 							self.log.debug(u"Forwarding full text to {}".format(msg.name))
-							res = cp.Protocol.res_text(msg.version, str(msg.text))
+							res = cp.Protocol.res_text(msg.version, self.cursor_pos, unicode(msg.text))
 							self.socket.sendall(res)
 
 				# Receive request header
