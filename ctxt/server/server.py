@@ -145,12 +145,13 @@ class Server(Borg):
 		"""
 		Share a message to all others (except the author).
 		"""
-		# Propagate the message to other clients.
+		# Propagate the message to other clients who have
+		# the same document open.
 		for client in self.clients:
 			if client != None and len(client) == 2:
 				t = client[1]
 				# Avoid forwarding messages to their author.
-				if t.get_uid() != msg.uid:
+				if t.get_doc() == msg.doc and t.get_uid() != msg.uid:
 					t.queue_sc.put(msg)
 
 	def send_to(self, msg):

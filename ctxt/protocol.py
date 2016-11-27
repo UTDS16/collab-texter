@@ -48,6 +48,8 @@ Protocol for requests and responses.
 	# Internal close request
 	REQ_INT_CLOSE = 0xFF
 
+	ERR_INVALID_DOCNAME = 0x01
+
 	@staticmethod
 	def res_ok(request_id):
 		"""

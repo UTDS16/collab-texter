@@ -235,6 +235,7 @@ def main():
 	parser.add_argument('-a', '--address', dest='address', type=str, default="", help='server IP address')
 	parser.add_argument('-p', '--port', dest='port', type=int, default=0, help='server port number')
 	parser.add_argument('-n', '--name', dest='name', type=str, default="", help='nickname')
+	parser.add_argument('-d', '--doc', dest='doc', type=str, default="", help='unique name of the document')
 
 	args = parser.parse_args()
 
@@ -250,6 +251,8 @@ def main():
 			window.set_port(args.port)
 		if args.name != "":
 			window.set_nickname(args.name)
+		if args.doc != "":
+			window.set_docname(args.doc)
 
 		sys.exit(app.exec_())
 	except Exception as e:

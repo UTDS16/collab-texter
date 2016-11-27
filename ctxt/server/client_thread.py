@@ -111,6 +111,13 @@ class ClientThread(threading.Thread):
 
 				# Some requests can be acknowledged right away.
 				if msg.id == cp.Protocol.REQ_JOIN:
+					# Validate document name
+					if len(msg.doc) < 1 or len(msg.doc) > 128:
+						self.log.error("Invalid document name \"{}\", sending Nack.".format(msg.doc))
+						res = cp.Protocol.res_error(cp.Protocol.ERR_INVALID_DOCNAME)
+						self.socket.sendall(res)
+						continue
+
 					self.name = msg.name
 					self.docname = msg.doc
 					self.state += 1
@@ -161,3 +168,9 @@ class ClientThread(threading.Thread):
 		Get client identifier.
 		"""
 		return self.uid
+
+	def get_doc(self):
+		"""
+		Get the name of the document that the client is currently editing.
+		"""
+		return self.docname
