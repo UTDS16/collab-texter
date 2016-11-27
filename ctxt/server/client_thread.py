@@ -29,6 +29,8 @@ class ClientThread(threading.Thread):
 		self.online = False
 		# Client nickname is "Anon", by default.
 		self.name = "Anon"
+		# Name of the document that the client is editing.
+		self.docname = ""
 		# And "Anon" is a stranger, naturally.
 		self.state = ClientThread.STAT_STRANGER
 
@@ -110,16 +112,18 @@ class ClientThread(threading.Thread):
 				# Some requests can be acknowledged right away.
 				if msg.id == cp.Protocol.REQ_JOIN:
 					self.name = msg.name
+					self.docname = msg.doc
 					self.state += 1
 				# TODO:: Any auth?
 				# TODO:: Send the current version of the whole document.
 
 				elif msg.id == cp.Protocol.REQ_SET_CURPOS:
 					self.cursor_pos = msg.cursor
-					msg.name = self.name
 
-				elif msg.id in [cp.Protocol.REQ_INSERT, cp.Protocol.REQ_REMOVE, cp.Protocol.REQ_TEXT]:
+				if msg.id in [cp.Protocol.REQ_INSERT, cp.Protocol.REQ_REMOVE, 
+						cp.Protocol.REQ_TEXT, cp.Protocol.REQ_SET_CURPOS]:
 					msg.name = self.name
+					msg.doc = self.docname
 
 				# Forward to the server
 				self.queue_cs.put(msg)

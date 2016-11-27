@@ -39,10 +39,19 @@ class Server(Borg):
 		self.clients = []
 		self.last_uid = 0
 
-		# A copy of the document that the clients are editing.
-		self.document = cd.Document()
+		# Dict of documents by name.
+		self.documents = {}
+
 		# Queue for Client -> Server messages.
 		self.queue_cs = queue.Queue()
+	
+	def get_doc(self, docname):
+		"""
+		Get reference to a document by its name.
+		"""
+		if docname not in self.documents:
+			self.documents[docname] = Document.get_doc(docname)
+		return self.documents[docname]
 
 	def listen(self, address='127.0.0.1', port=7777):
 		"""
@@ -67,27 +76,32 @@ class Server(Borg):
 				while not self.queue_cs.empty():
 					msg = self.queue_cs.get()
 
+					doc = None
+					if hasattr(msg, "doc"):
+						doc = self.get_doc(msg.doc)
+
 					# Request to insert some text?
 					if msg.id == cp.Protocol.REQ_INSERT:
 						# Update our copy of the document.
-						self.document.insert(msg.version, msg.cursor, msg.text)
+						doc.insert(msg.version, msg.cursor, msg.text)
 						# No longer a request. It's now a response.
 						msg.id = cp.Protocol.RES_INSERT
 
 						self.share_to_others(msg)
 					# Request to remove some text?
 					elif msg.id == cp.Protocol.REQ_REMOVE:
-						self.document.remove(msg.version, msg.cursor, msg.length)
+						doc.remove(msg.version, msg.cursor, msg.length)
 						msg.id = cp.Protocol.RES_REMOVE
 
 						self.share_to_others(msg)
 					# Request for the whole text?
 					elif msg.id == cp.Protocol.REQ_TEXT:
 						msg.id = cp.Protocol.RES_TEXT
-						msg.text = self.document.get_whole()
-						msg.version = self.document.get_version()
+						msg.text = doc.get_whole()
+						msg.version = doc.get_version()
 
 						self.send_to(msg)
+
 				# New clients?
 				client_socket, source = self.socket.accept()
 				self.last_uid += 1
