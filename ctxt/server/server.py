@@ -74,6 +74,12 @@ Anyways, it's a simpleton.
 						msg.id = cp.Protocol.RES_INSERT
 
 						self.share_to_others(msg)
+					# Request to remove some text?
+					elif msg.id == cp.Protocol.REQ_REMOVE:
+						self.document.remove(msg.version, msg.cursor, msg.length)
+						msg.id = cp.Protocol.RES_REMOVE
+
+						self.share_to_others(msg)
 					# Request for the whole text?
 					elif msg.id == cp.Protocol.REQ_TEXT:
 						msg.id = cp.Protocol.RES_TEXT

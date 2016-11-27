@@ -73,6 +73,11 @@ class ClientThread(threading.Thread):
 								msg.name, msg.cursor, msg.text, msg.version))
 							res = cp.Protocol.res_insert(msg.name, msg.version, msg.cursor, msg.text)
 							self.socket.sendall(res)
+						elif msg.id == cp.Protocol.RES_REMOVE:
+							self.log.debug(u"Forwarding remove {}:{}-{} (version {})".format(
+								msg.name, msg.cursor, msg.length, msg.version))
+							res = cp.Protocol.res_remove(msg.name, msg.version, msg.cursor, msg.length)
+							self.socket.sendall(res)
 						# Forward full text responses.
 						elif msg.id == cp.Protocol.RES_TEXT:
 							self.log.debug(u"Forwarding full text to {}".format(msg.name))
@@ -105,14 +110,11 @@ class ClientThread(threading.Thread):
 					# TODO:: Any auth?
 					# TODO:: Send the current version of the whole document.
 
-				elif msg.id == cp.Protocol.REQ_TEXT:
-					msg.name = self.name
-
 				elif msg.id == cp.Protocol.REQ_SET_CURPOS:
 					self.cursor_pos = msg.cursor
 					msg.name = self.name
 
-				elif msg.id == cp.Protocol.REQ_INSERT:
+				elif msg.id in [cp.Protocol.REQ_INSERT, cp.Protocol.REQ_REMOVE, cp.Protocol.REQ_TEXT]:
 					msg.name = self.name
 
 				# Forward to the server

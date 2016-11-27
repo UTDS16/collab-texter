@@ -141,8 +141,8 @@ class Client():
 			# Some kind of an error?
 			elif d["id"] == cp.Protocol.RES_ERROR:
 				self.log.error("Server error {}".format(d["error"]))
-			# Someone inserted text?
-			elif d["id"] == cp.Protocol.RES_INSERT:
+			# Someone inserted or removed text?
+			elif d["id"] in [cp.Protocol.RES_INSERT, cp.Protocol.RES_REMOVE]:
 				self.log.debug(d)
 				if self.state == Client.STAT_EDITING:
 					msg = cp.Message(d, True)
@@ -168,7 +168,14 @@ class Client():
 		Confess to the great Server that we've sinned in
 		letting the text change. The Server will handle this issue.
 		"""
-		version, cursor, op, text = change
+		op = change["op"]
+		version = change["version"]
+		if "cursor" in change:
+			cursor = change["cursor"]
+		if "text" in change:
+			text = change["text"]
+		if "length" in change:
+			length = change["length"]
 		# It's an insert request?
 		if op == cp.Protocol.REQ_INSERT:
 			req = cp.Protocol.req_insert(version, cursor, text)
@@ -177,7 +184,11 @@ class Client():
 		elif op == cp.Protocol.REQ_SET_CURPOS:
 			req = cp.Protocol.req_set_cursor_pos(version, cursor)
 			self.socket.sendall(req)
-	
+		# Or removal?
+		elif op == cp.Protocol.REQ_REMOVE:
+			req = cp.Protocol.req_remove(version, cursor, length)
+			self.socket.sendall(req)
+
 	def get_whole_text(self):
 		"""
 		Request for the whole text.

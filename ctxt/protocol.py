@@ -24,6 +24,8 @@ Protocol for requests and responses.
 	RES_OK = 0x00
 	# Response: Request was erroneous
 	RES_ERROR = 0x01
+	# Response: Text has been removed
+	RES_REMOVE = 0x0D
 	# Response: Text has been inserted
 	RES_INSERT = 0x0E
 	# Response: The text so far
@@ -42,6 +44,8 @@ Protocol for requests and responses.
 	REQ_GET_CURPOS = 0xE2
 	# Request to set cursor position
 	REQ_SET_CURPOS = 0xE3
+	# Request to remove text
+	REQ_REMOVE = 0xE4
 
 	# Internal close request
 	REQ_INT_CLOSE = 0xFF
@@ -61,6 +65,21 @@ Protocol for requests and responses.
 		return struct.pack(
 				"<BII", Protocol.RES_ERROR, 
 				4, error)
+	
+	@staticmethod
+	def res_remove(name, version, cursor, length):
+		"""
+		Response "Author (name) just deleted (length) bytes from (cursor), in reference to (version)."
+		"""
+		bname = bytearray(name, "utf8")
+		bnlen = len(bname)
+		res = struct.pack(
+				"<BIIIII{}s".format(bnlen),
+				Protocol.RES_REMOVE,
+				bnlen + 16, version, 
+				cursor, length,
+				bnlen, str(bname))
+		return res
 	
 	@staticmethod
 	def res_insert(name, version, cursor, text):
@@ -136,6 +155,18 @@ Protocol for requests and responses.
 				Protocol.REQ_INSERT,
 				blen + 12, version, cursor, 
 				blen, str(btext))
+		return req
+
+	@staticmethod
+	def req_remove(version, cursor, length):
+		"""
+		Request to remove text on the remote.
+		"""
+		req = struct.pack(
+				"<BIIII",
+				Protocol.REQ_REMOVE,
+				12, version, 
+				cursor, length)
 		return req
 
 	@staticmethod
@@ -250,6 +281,21 @@ Protocol for requests and responses.
 			d["cursor"] = cursor
 			d["name"] = bname.decode("utf-8")
 			d["text"] = btext.decode("utf-8")
+		# Remove text?
+		elif r_id == Protocol.REQ_REMOVE:
+			version, cursor, length = struct.unpack(
+					"<III", breq)
+			d["version"] = version
+			d["cursor"] = cursor
+			d["length"] = length
+		elif r_id == Protocol.RES_REMOVE:
+			version, cursor, length, blen, bname = struct.unpack(
+					"<IIII{}s".format(r_len - 16),
+					breq)
+			d["version"] = version
+			d["cursor"] = cursor
+			d["length"] = length
+			d["name"] = bname.decode("utf-8")
 		# Get remote cursor position?
 		elif r_id == Protocol.REQ_GET_CURPOS:
 			pass

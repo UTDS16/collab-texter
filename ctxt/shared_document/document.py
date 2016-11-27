@@ -29,8 +29,17 @@ TODO:: Perhaps figure out, how to use it for the GUI as well
 		"""
 		Insert text at a specific cursor position.
 		"""
-		print "Cursor: {}".format(cursor)
 		self.text = self.text[:cursor] + text + self.text[cursor:]
+
+		# TODO:: Return something for updating client cursors.
+	
+	def remove(self, version, cursor, length):
+		"""
+		Remove a selection of text at a specific cursor position.
+		"""
+		self.text = self.text[:cursor] + self.text[(cursor+length):]
+
+		# TODO:: Return something for updating client cursors.
 
 	def get_whole(self):
 		"""
