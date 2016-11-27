@@ -1,13 +1,14 @@
 """
 Client thread class for the server.
 """
+import Queue as queue
+import errno
+import logging
+import socket
+import threading
 
 import ctxt.protocol as cp
-import threading
-import logging
-import struct
-import socket
-import Queue as queue
+
 
 class ClientThread(threading.Thread):
 	"""
@@ -44,7 +45,7 @@ class ClientThread(threading.Thread):
 		self.queue_sc = queue.Queue()
 
 		self.cursor_pos = 0
-	
+
 	def __repr__(self):
 		"""
 		Useful for logging with client source (helps to tell them apart).
@@ -107,8 +108,8 @@ class ClientThread(threading.Thread):
 				if msg.id == cp.Protocol.REQ_JOIN:
 					self.name = msg.name
 					self.state += 1
-					# TODO:: Any auth?
-					# TODO:: Send the current version of the whole document.
+				# TODO:: Any auth?
+				# TODO:: Send the current version of the whole document.
 
 				elif msg.id == cp.Protocol.REQ_SET_CURPOS:
 					self.cursor_pos = msg.cursor
@@ -130,8 +131,11 @@ class ClientThread(threading.Thread):
 			except socket.error as e:
 				# Resource temporarily not available?
 				# Until next time, then.
-				if e.errno not in [11]:
+				if e.errno not in [errno.EWOULDBLOCK]:
 					self.log.exception(e)
+				if e.errno in (errno.ECONNRESET, errno.ECONNABORTED):
+					self.log.debug("Received {}, closing socket".format(errno.errorcode[e.errno]))
+					break
 			except Exception as e:
 				# TODO:: Limit looped logs, somehow.
 				self.log.exception(e)

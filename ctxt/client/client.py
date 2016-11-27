@@ -6,11 +6,12 @@ import logging
 import socket
 import sys
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-from ctxt.client.ui import MainWindow
+from PyQt5 import QtWidgets
 
 import ctxt.protocol as cp
 import ctxt.util as cu
+from ctxt.client.ui import MainWindow
+
 
 class Client():
 	"""
@@ -117,9 +118,9 @@ class Client():
 			# Extract payload length.
 			r_len = cp.Protocol.get_len(hdr)
 			# Receive the rest of the data.
-			#self.socket.setblocking(1)
+			# self.socket.setblocking(1)
 			data = self.socket.recv(r_len)
-			#self.socket.setblocking(0)
+			# self.socket.setblocking(0)
 			if len(data) < r_len:
 				self.log.warning("Dropped message")
 				return
@@ -160,6 +161,9 @@ class Client():
 			# Skip "Resource temporarily unavailable".
 			if e.errno not in [errno.EWOULDBLOCK]:
 				self.log.exception(e)
+			if e.errno in (errno.ECONNRESET, errno.ECONNABORTED):
+				self.log.debug("Received {}, connection will be closed".format(errno.errorcode[e.errno]))
+				self.state = Client.STAT_IDLE
 		except Exception as e:
 			self.log.exception(e)
 
@@ -206,6 +210,7 @@ class Client():
 		"""
 		Client.online = False
 
+
 def init_logging():
 	"""
 	Initialize logging for the application.
@@ -213,11 +218,17 @@ def init_logging():
 	log = logging.getLogger("CT")
 	log.setLevel(logging.DEBUG)
 
+	# Log to file.
 	handler = logging.FileHandler("log_client.txt", encoding="UTF-8")
+	handler.setFormatter(logging.Formatter("[%(levelname)s: %(name)s]\t%(message)s"))
+	log.addHandler(handler)
+	# And log to stdout.
+	handler = logging.StreamHandler()
 	handler.setFormatter(logging.Formatter("[%(levelname)s: %(name)s]\t%(message)s"))
 	log.addHandler(handler)
 
 	return log
+
 
 def main():
 	parser = argparse.ArgumentParser(description="Collaborative Text Editor Client")
@@ -243,6 +254,7 @@ def main():
 		sys.exit(app.exec_())
 	except Exception as e:
 		log.exception(e)
+
 
 """
 The Grand Main
