@@ -50,7 +50,7 @@ class Server(Borg):
 		Get reference to a document by its name.
 		"""
 		if docname not in self.documents:
-			self.documents[docname] = Document.get_doc(docname)
+			self.documents[docname] = cd.Document.get_doc(docname)
 		return self.documents[docname]
 
 	def listen(self, address='127.0.0.1', port=7777):

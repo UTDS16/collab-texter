@@ -4,6 +4,7 @@ Document class.
 
 import logging
 import base64
+import os
 import ctxt.util as cu
 
 class Document:
@@ -23,10 +24,6 @@ class Document:
 		self.unsaved_changes = True
 		# TODO:: Should we have the same class on the client
 		# side as well?
-
-		# A random name for the document, if we ever were to try and save it.
-		self.hash = cu.gen_random_string(32)
-		self.local_filepath = "storage/{}.txt".format(self.hash)
 
 	def insert(self, version, cursor, text):
 		"""
@@ -62,9 +59,9 @@ class Document:
 		try:
 			if self.unsaved_changes:
 				self.log.info("Writing to file..")
-				with open(self.local_filepath, "wt") as f:
+				with open(self.get_filepath(), "wt") as f:
 					text = self.get_whole()
-					f.write(text)
+					f.write(text.encode("utf8"))
 		except Exception as e:
 			self.log.exception(e)
 
@@ -83,10 +80,10 @@ class Document:
 		# Open the file for reading and create it if
 		# it doesn't exist yet.
 		with open(fpath, "a+") as fi:
-			self.text = fi.read()
+			self.text = fi.read().decode("utf8")
 
 	@staticmethod
-	def get_doc(self, docname):
+	def get_doc(docname):
 		"""
 		Gets a document by its name.
 		If it doesn't exist, then it's created.
