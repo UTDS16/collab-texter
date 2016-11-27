@@ -23,7 +23,7 @@ class ClientThread(threading.Thread):
 	# Or mayhaps they've already left?
 	STAT_LEFT = 2
 
-	def __init__(self, socket, source, queue_cs):
+	def __init__(self, uid, socket, source, queue_cs):
 		threading.Thread.__init__(self)
 
 		self.online = False
@@ -36,6 +36,7 @@ class ClientThread(threading.Thread):
 		self.socket.setblocking(0)
 		self.address = source[0]
 		self.port = source[1]
+		self.uid = uid
 
 		self.log = logging.getLogger(str(self))
 
@@ -70,18 +71,18 @@ class ClientThread(threading.Thread):
 					else:
 						# Forward inserts.
 						if msg.id == cp.Protocol.RES_INSERT:
-							self.log.debug(u"Forwarding insert {}:{}:{} (version {})".format(
-								msg.name, msg.cursor, msg.text, msg.version))
+							self.log.debug(u"Forwarding insert {} ({}):{}:{} (version {})".format(
+								msg.name, msg.uid, msg.cursor, msg.text, msg.version))
 							res = cp.Protocol.res_insert(msg.name, msg.version, msg.cursor, msg.text)
 							self.socket.sendall(res)
 						elif msg.id == cp.Protocol.RES_REMOVE:
-							self.log.debug(u"Forwarding remove {}:{}-{} (version {})".format(
-								msg.name, msg.cursor, msg.length, msg.version))
+							self.log.debug(u"Forwarding remove {} ({}):{}-{} (version {})".format(
+								msg.name, msg.uid, msg.cursor, msg.length, msg.version))
 							res = cp.Protocol.res_remove(msg.name, msg.version, msg.cursor, msg.length)
 							self.socket.sendall(res)
 						# Forward full text responses.
 						elif msg.id == cp.Protocol.RES_TEXT:
-							self.log.debug(u"Forwarding full text to {}".format(msg.name))
+							self.log.debug(u"Forwarding full text to {} ({})".format(msg.name, msg.uid))
 							res = cp.Protocol.res_text(msg.version, self.cursor_pos, unicode(msg.text))
 							self.socket.sendall(res)
 
@@ -103,6 +104,8 @@ class ClientThread(threading.Thread):
 				d = cp.Protocol.unpack(hdr + data)
 				self.log.debug("Request: {}".format(d))
 				msg = cp.Message(d, False)
+				msg.source = (self.address, self.port)
+				msg.uid = self.uid
 
 				# Some requests can be acknowledged right away.
 				if msg.id == cp.Protocol.REQ_JOIN:
@@ -148,3 +151,9 @@ class ClientThread(threading.Thread):
 		A pointless function, really.
 		"""
 		return self.name
+
+	def get_uid(self):
+		"""
+		Get client identifier.
+		"""
+		return self.uid

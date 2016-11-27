@@ -15,17 +15,17 @@ from ctxt.borg import Borg
 
 class Server(Borg):
 	"""
-A server Borg, whatever that means. Ask Alex Martelli.
-Anyways, it's a simpleton.
-"""
+	A server Borg, whatever that means. Ask Alex Martelli.
+	Anyways, it's a singleton.
+	"""
 	TCP_CLIENTS_QUEUE_LEN = 10
 	LOGNAME = "CT.Server"
 
 	@staticmethod
 	def get_log():
 		"""
-	Get server log.
-	"""
+		Get server log.
+		"""
 		return logging.getLogger(Server.LOGNAME)
 
 	def __init__(self):
@@ -37,6 +37,7 @@ Anyways, it's a simpleton.
 		self.socket = None
 		# List of client threads with their source parameters.
 		self.clients = []
+		self.last_uid = 0
 
 		# A copy of the document that the clients are editing.
 		self.document = cd.Document()
@@ -45,8 +46,8 @@ Anyways, it's a simpleton.
 
 	def listen(self, address='127.0.0.1', port=7777):
 		"""
-	Start listening for incoming connections.
-	"""
+		Start listening for incoming connections.
+		"""
 		self.online = True
 
 		# Create a TCP socket.
@@ -89,10 +90,11 @@ Anyways, it's a simpleton.
 						self.send_to(msg)
 				# New clients?
 				client_socket, source = self.socket.accept()
-				self.log.info("New client connected from {}".format(source))
+				self.last_uid += 1
+				self.log.info("Client {} connected from {}".format(self.last_uid, source))
 
 				# Spawn a thread to serve the client.
-				t = ClientThread(client_socket, source, self.queue_cs)
+				t = ClientThread(self.last_uid, client_socket, source, self.queue_cs)
 				t.start()
 				self.clients.append([source, t])
 
@@ -127,39 +129,39 @@ Anyways, it's a simpleton.
 
 	def share_to_others(self, msg):
 		"""
-	Share a message to all others (except the author).
-	"""
+		Share a message to all others (except the author).
+		"""
 		# Propagate the message to other clients.
 		for client in self.clients:
 			if client != None and len(client) == 2:
 				t = client[1]
 				# Avoid forwarding messages to their author.
-				if t.get_name() != msg.name:
+				if t.get_uid() != msg.uid:
 					t.queue_sc.put(msg)
 
 	def send_to(self, msg):
 		"""
-	Send a message to one specific client.
-	"""
+		Send a message to one specific client.
+		"""
 		# Send to a specific client.
 		for client in self.clients:
 			if client != None and len(client) == 2:
 				t = client[1]
-				if t.get_name() == msg.name:
+				if t.get_uid() == msg.uid:
 					t.queue_sc.put(msg)
 					return
 
 	def close(self):
 		"""
-	Close the server on the next update.
-	"""
+		Close the server on the next update.
+		"""
 		self.online = False
 
 
 def init_logging():
 	"""
-Initialize logging.
-"""
+	Initialize logging.
+	"""
 	log = logging.getLogger("CT")
 	log.setLevel(logging.DEBUG)
 
@@ -177,8 +179,8 @@ Initialize logging.
 
 def signal_handler(signum, frame):
 	"""
-Custom signal handler for SIGINT, SIGTERM.
-"""
+	Custom signal handler for SIGINT, SIGTERM.
+	"""
 	# Reference the one and only Server.
 	server = Server.get_instance()
 
