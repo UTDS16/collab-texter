@@ -40,8 +40,6 @@ Protocol for requests and responses.
 	REQ_TEXT = 0xE0
 	# Request to insert text
 	REQ_INSERT = 0xE1
-	# Request to get current cursor position
-	REQ_GET_CURPOS = 0xE2
 	# Request to set cursor position
 	REQ_SET_CURPOS = 0xE3
 	# Request to remove text
@@ -139,7 +137,7 @@ Protocol for requests and responses.
 		A leave request.
 		"""
 		req = struct.pack(
-				"<B", Protocol.REQ_LEAVE)
+				"<BI", Protocol.REQ_LEAVE, 0)
 		return req
 
 	@staticmethod
@@ -167,18 +165,6 @@ Protocol for requests and responses.
 				Protocol.REQ_REMOVE,
 				12, version, 
 				cursor, length)
-		return req
-
-	@staticmethod
-	def req_get_cursor_pos():
-		"""
-		Request for current cursor position on the remote.
-		Client: "Forgot where I was at"
-		"""
-		req = struct.pack(
-				"<BI",
-				Protocol.REQ_GET_CURPOS,
-				0)
 		return req
 
 	@staticmethod
@@ -296,9 +282,6 @@ Protocol for requests and responses.
 			d["cursor"] = cursor
 			d["length"] = length
 			d["name"] = bname.decode("utf-8")
-		# Get remote cursor position?
-		elif r_id == Protocol.REQ_GET_CURPOS:
-			pass
 		# Set remote cursor position?
 		elif r_id == Protocol.REQ_SET_CURPOS:
 			# Extract version and cursor index

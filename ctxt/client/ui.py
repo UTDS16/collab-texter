@@ -153,9 +153,17 @@ class MainWindow(QtWidgets.QMainWindow):
 			if key in [QtCore.Qt.Key_Return, QtCore.Qt.Key_Enter]:
 				self.req_insert('\n')
 			elif key == QtCore.Qt.Key_Backspace:
-				self.req_remove(-1)
+				# Support for Ctrl+Backspace (removes the previous word).
+				if event.modifiers() & QtCore.Qt.ControlModifier:
+					self.req_remove_word(-1)
+				else:
+					self.req_remove(-1)
 			elif key == QtCore.Qt.Key_Delete:
-				self.req_remove(1)
+				# Support for Ctrl+Delete (removes the next word).
+				if event.modifiers() & QtCore.Qt.ControlModifier:
+					self.req_remove_word(1)
+				else:
+					self.req_remove(1)
 			elif key == QtCore.Qt.Key_Escape:
 				self.close()
 			elif cu.u_is_printable(u):
@@ -186,10 +194,33 @@ class MainWindow(QtWidgets.QMainWindow):
 		if length < 0:
 			length = abs(length)
 			cursor -= length
+		# And produce the message.
 		d = {
 				"op": cp.Protocol.REQ_REMOVE,
 				"version": self.doc_ver,
 				"cursor": cursor,
+				"length": length
+				}
+		self.client.send_text_change(d)
+	
+	def req_remove_word(self, direction):
+		"""
+		Generate a request to remove a word
+		relative to the cursor position.
+		"""
+		# Select the word left or right to the cursor.
+		cursor = self.content.textEdit.textCursor()
+		if direction > 0:
+			cursor.movePosition(QtGui.QTextCursor.WordRight, QtGui.QTextCursor.KeepAnchor)
+		else:
+			cursor.movePosition(QtGui.QTextCursor.WordLeft, QtGui.QTextCursor.KeepAnchor)
+		# Get selection length
+		length = cursor.selectionEnd() - cursor.selectionStart()
+		# And produce the message.
+		d = {
+				"op": cp.Protocol.REQ_REMOVE,
+				"version": self.doc_ver,
+				"cursor": cursor.selectionStart(),
 				"length": length
 				}
 		self.client.send_text_change(d)
@@ -235,10 +266,7 @@ class MainWindow(QtWidgets.QMainWindow):
 				# Generate the desired selection and remove the text.
 				cursor = self.content.textEdit.textCursor()
 				cursor.setPosition(msg.cursor)
-				if msg.length < 0:
-					cursor.movePosition(QtGui.QTextCursor.Left, QtGui.QTextCursor.KeepAnchor, abs(msg.length))
-				elif msg.length > 0:
-					cursor.movePosition(QtGui.QTextCursor.Right, QtGui.QTextCursor.KeepAnchor, msg.length)
+				cursor.movePosition(QtGui.QTextCursor.Right, QtGui.QTextCursor.KeepAnchor, msg.length)
 				cursor.removeSelectedText()
 	
 	def closeEvent(self, event):
