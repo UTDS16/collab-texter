@@ -79,33 +79,34 @@ class Server(Borg):
 					# TODO:: Figure out a solution with a periodic timer
 					# This would also avoid the busy-loop CPU lock
 					
-					print msg.__dict__
-
 					doc = None
 					if hasattr(msg, "doc"):
 						doc = self.get_doc(msg.doc)
-					print("Doc: {}".format(doc))
 					if doc != None:
 						# A commit?
 						if msg.id == cp.Protocol.REQ_COMMIT:
+							self.log.info("Processing commit {:08X} from {} ({})".format(
+								msg.version, msg.name, msg.uid))
 							doc.process_commit(msg)
 						# Request for the whole text?
 						elif msg.id == cp.Protocol.REQ_TEXT:
+							self.log.info("Sending whole text ({:08X}) to {} ({})".format(
+								doc.get_version(), msg.name, msg.uid))
+
 							msg.id = cp.Protocol.RES_TEXT
 							msg.text = doc.get_whole()
 							msg.version = doc.get_version()
 
-							print("REQ_TEXT: {}".format(msg))
 							self.send_to(msg)
 
 						# Update
 						commit = doc.update()
 						if commit != None:
-							#msg = cp.Message(commit, False)
-							msg.id = cp.Protocol.RES_COMMIT
-							msg.doc = doc.get_name()
+							commit.id = cp.Protocol.RES_COMMIT
+							commit.doc = doc.get_name()
+							self.log.info("Spreading commit {:08X}".format(commit.version))
 							# We have a commit to spread to clients.
-							self.share_to_all(msg)
+							self.share_to_all(commit)
 
 				# New clients?
 				client_socket, source = self.socket.accept()

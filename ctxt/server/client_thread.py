@@ -66,7 +66,6 @@ class ClientThread(threading.Thread):
 				# Anything in the Server -> Client queue?
 				if not self.queue_sc.empty():
 					msg = self.queue_sc.get()
-					print("MSG: {}".format(msg))
 					if msg.internal:
 						# Uh oh, gotta go..
 						if msg.id == cp.Protocol.REQ_INT_CLOSE:
