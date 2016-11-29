@@ -76,31 +76,36 @@ class Server(Borg):
 				while not self.queue_cs.empty():
 					msg = self.queue_cs.get()
 
+					# TODO:: Figure out a solution with a periodic timer
+					# This would also avoid the busy-loop CPU lock
+					
+					print msg.__dict__
+
 					doc = None
 					if hasattr(msg, "doc"):
 						doc = self.get_doc(msg.doc)
+					print("Doc: {}".format(doc))
+					if doc != None:
+						# A commit?
+						if msg.id == cp.Protocol.REQ_COMMIT:
+							doc.process_commit(msg)
+						# Request for the whole text?
+						elif msg.id == cp.Protocol.REQ_TEXT:
+							msg.id = cp.Protocol.RES_TEXT
+							msg.text = doc.get_whole()
+							msg.version = doc.get_version()
 
-					# Request to insert some text?
-					if msg.id == cp.Protocol.REQ_INSERT:
-						# Update our copy of the document.
-						doc.insert(msg.version, msg.cursor, msg.text)
-						# No longer a request. It's now a response.
-						msg.id = cp.Protocol.RES_INSERT
+							print("REQ_TEXT: {}".format(msg))
+							self.send_to(msg)
 
-						self.share_to_others(msg)
-					# Request to remove some text?
-					elif msg.id == cp.Protocol.REQ_REMOVE:
-						doc.remove(msg.version, msg.cursor, msg.length)
-						msg.id = cp.Protocol.RES_REMOVE
-
-						self.share_to_others(msg)
-					# Request for the whole text?
-					elif msg.id == cp.Protocol.REQ_TEXT:
-						msg.id = cp.Protocol.RES_TEXT
-						msg.text = doc.get_whole()
-						msg.version = doc.get_version()
-
-						self.send_to(msg)
+						# Update
+						commit = doc.update()
+						if commit != None:
+							#msg = cp.Message(commit, False)
+							msg.id = cp.Protocol.RES_COMMIT
+							msg.doc = doc.get_name()
+							# We have a commit to spread to clients.
+							self.share_to_all(msg)
 
 				# New clients?
 				client_socket, source = self.socket.accept()
@@ -140,6 +145,17 @@ class Server(Borg):
 					t.join()
 		else:
 			self.log.info("No client threads to join")
+
+	def share_to_all(self, msg):
+		"""
+		Share a message to everyone.
+		"""
+		# Propagate the message to other clients who have
+		# the same document open.
+		for client in self.clients:
+			if client != None and len(client) == 2:
+				t = client[1]
+				t.queue_sc.put(msg)
 
 	def share_to_others(self, msg):
 		"""

@@ -85,6 +85,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.set_nickname(nickname)
 		self.set_docname(docname)
 		self.doc_ver = 0
+		self.active_commit = {"version":0, "sequence":[]}
 
 		# Start the update timer
 		self.update_timer = QtCore.QTimer()
@@ -181,12 +182,11 @@ class MainWindow(QtWidgets.QMainWindow):
 		"""
 		cursor = self.content.textEdit.textCursor().position()
 		d = {
-				"op": cp.Protocol.REQ_INSERT,
-				"version": self.doc_ver,
+				"id": cp.Protocol.REQ_INSERT,
 				"cursor": cursor,
 				"text": text
 				}
-		self.client.send_text_change(d)
+		self.active_commit["sequence"].append(d)
 	
 	def req_remove(self, length):
 		"""
@@ -200,12 +200,11 @@ class MainWindow(QtWidgets.QMainWindow):
 			cursor -= length
 		# And produce the message.
 		d = {
-				"op": cp.Protocol.REQ_REMOVE,
-				"version": self.doc_ver,
+				"id": cp.Protocol.REQ_REMOVE,
 				"cursor": cursor,
 				"length": length
 				}
-		self.client.send_text_change(d)
+		self.active_commit["sequence"].append(d)
 	
 	def req_remove_word(self, direction):
 		"""
@@ -222,12 +221,11 @@ class MainWindow(QtWidgets.QMainWindow):
 		length = cursor.selectionEnd() - cursor.selectionStart()
 		# And produce the message.
 		d = {
-				"op": cp.Protocol.REQ_REMOVE,
-				"version": self.doc_ver,
+				"id": cp.Protocol.REQ_REMOVE,
 				"cursor": cursor.selectionStart(),
 				"length": length
 				}
-		self.client.send_text_change(d)
+		self.active_commit["sequence"].append(d)
 
 	def update(self):
 		"""
@@ -237,6 +235,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
 		if not self.client.online:
 			return
+
+		# Send the active commit.
+		if self.active_commit["sequence"] != []:
+			self.active_commit["version"] = self.doc_ver
+			print("Sending commit {}".format(self.active_commit))
+			self.client.commit(self.active_commit)
+			# Reset the commit
+			self.active_commit["sequence"] = []
 
 		self.client.update()
 
