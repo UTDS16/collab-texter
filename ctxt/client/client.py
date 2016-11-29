@@ -128,6 +128,7 @@ class Client():
 			self.log.debug("Received data: " + cu.to_hex_str(hdr + data))
 
 			d = cp.Protocol.unpack(hdr + data)
+			print d
 			# Request acknowledged?
 			if d["id"] == cp.Protocol.RES_OK:
 				# That might mean we've successfully joined.
@@ -167,31 +168,13 @@ class Client():
 		except Exception as e:
 			self.log.exception(e)
 
-	def send_text_change(self, change):
+	def commit(self, commit):
 		"""
-		Confess to the great Server that we've sinned in
-		letting the text change. The Server will handle this issue.
+		Send a commit, potentially consisting of many
+		operations.
 		"""
-		op = change["op"]
-		version = change["version"]
-		if "cursor" in change:
-			cursor = change["cursor"]
-		if "text" in change:
-			text = change["text"]
-		if "length" in change:
-			length = change["length"]
-		# It's an insert request?
-		if op == cp.Protocol.REQ_INSERT:
-			req = cp.Protocol.req_insert(version, cursor, text)
-			self.socket.sendall(req)
-		# Nope, it's a plain cursor move?
-		elif op == cp.Protocol.REQ_SET_CURPOS:
-			req = cp.Protocol.req_set_cursor_pos(version, cursor)
-			self.socket.sendall(req)
-		# Or removal?
-		elif op == cp.Protocol.REQ_REMOVE:
-			req = cp.Protocol.req_remove(version, cursor, length)
-			self.socket.sendall(req)
+		req = cp.Protocol.res_commit(commit["version"], commit["sequence"])
+		self.socket.sendall(req)
 
 	def get_whole_text(self):
 		"""

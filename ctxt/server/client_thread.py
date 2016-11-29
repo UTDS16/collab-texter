@@ -66,21 +66,17 @@ class ClientThread(threading.Thread):
 				# Anything in the Server -> Client queue?
 				if not self.queue_sc.empty():
 					msg = self.queue_sc.get()
+					print("MSG: {}".format(msg))
 					if msg.internal:
 						# Uh oh, gotta go..
 						if msg.id == cp.Protocol.REQ_INT_CLOSE:
 							self.online = False
 					else:
-						# Forward inserts.
-						if msg.id == cp.Protocol.RES_INSERT:
-							self.log.debug(u"Forwarding insert {} ({}):{}:{} (version {})".format(
-								msg.name, msg.uid, msg.cursor, msg.text, msg.version))
-							res = cp.Protocol.res_insert(msg.name, msg.version, msg.cursor, msg.text)
-							self.socket.sendall(res)
-						elif msg.id == cp.Protocol.RES_REMOVE:
-							self.log.debug(u"Forwarding remove {} ({}):{}-{} (version {})".format(
-								msg.name, msg.uid, msg.cursor, msg.length, msg.version))
-							res = cp.Protocol.res_remove(msg.name, msg.version, msg.cursor, msg.length)
+						# Forward commits.
+						if msg.id == cp.Protocol.RES_COMMIT:
+							self.log.debug(u"Forwarding commit {}:{}".format(
+								msg.version, msg.sequence))
+							res = cp.Protocol.res_commit(msg.version, msg.sequence)
 							self.socket.sendall(res)
 						# Forward full text responses.
 						elif msg.id == cp.Protocol.RES_TEXT:
@@ -121,17 +117,14 @@ class ClientThread(threading.Thread):
 					self.name = msg.name
 					self.docname = msg.doc
 					self.state += 1
-				# TODO:: Any auth?
-				# TODO:: Send the current version of the whole document.
 
-				elif msg.id == cp.Protocol.REQ_SET_CURPOS:
-					self.cursor_pos = msg.cursor
+					# TODO:: Any auth?
+					# TODO:: Send the current version of the whole document.
 
-				if msg.id in [cp.Protocol.REQ_INSERT, cp.Protocol.REQ_REMOVE, 
-						cp.Protocol.REQ_TEXT, cp.Protocol.REQ_SET_CURPOS]:
+				# A commit, consisting of several operations.
+				elif msg.id in [cp.Protocol.REQ_COMMIT, cp.Protocol.REQ_TEXT]:
 					msg.name = self.name
 					msg.doc = self.docname
-
 				# Forward to the server
 				self.queue_cs.put(msg)
 

@@ -15,8 +15,8 @@ Request structure:
 
 class Protocol():
 	"""
-Protocol for requests and responses.
-"""
+	Protocol for requests and responses.
+	"""
 	# Minimum request length (header only)
 	MIN_REQ_LEN = 5
 
@@ -24,6 +24,11 @@ Protocol for requests and responses.
 	RES_OK = 0x00
 	# Response: Request was erroneous
 	RES_ERROR = 0x01
+	# Response: Move text cursor
+	RES_CURSOR = 0x0D
+	# A commit, both a request as well as response (sequence of insert, remove operations)
+	REQ_COMMIT = 0x0C
+	RES_COMMIT = 0x0C
 	# Response: Text has been removed
 	RES_REMOVE = 0x0D
 	# Response: Text has been inserted
@@ -48,6 +53,7 @@ Protocol for requests and responses.
 	# Internal close request
 	REQ_INT_CLOSE = 0xFF
 
+	# Invalid document name error
 	ERR_INVALID_DOCNAME = 0x01
 
 	@staticmethod
@@ -67,36 +73,81 @@ Protocol for requests and responses.
 				4, error)
 	
 	@staticmethod
-	def res_remove(name, version, cursor, length):
+	def res_remove(name, cursor, length):
 		"""
-		Response "Author (name) just deleted (length) bytes from (cursor), in reference to (version)."
+		Response "Author (name) just deleted (length) bytes from (cursor)."
 		"""
 		bname = bytearray(name, "utf8")
 		bnlen = len(bname)
 		res = struct.pack(
-				"<BIIIII{}s".format(bnlen),
+				"<BIII{}s".format(bnlen),
 				Protocol.RES_REMOVE,
-				bnlen + 16, version, 
+				bnlen + 8, 
 				cursor, length,
-				bnlen, str(bname))
+				str(bname))
 		return res
 	
 	@staticmethod
-	def res_insert(name, version, cursor, text):
+	def res_insert(name, cursor, text):
 		"""
-		Response "Author (name) just wrote (text) at (cursor), in reference to (version)."
+		Response "Author (name) just wrote (text) at (cursor)."
 		"""
 		bname = bytearray(name, "utf8")
 		bnlen = len(bname)
 		btext = bytearray(text, "utf8")
 		btlen = len(btext)
 		res = struct.pack(
-				"<BIIII{}sI{}s".format(bnlen, btlen),
+				"<BIII{}s{}s".format(bnlen, btlen),
 				Protocol.RES_INSERT,
-				bnlen + btlen + 16,
-				version, cursor,
-				bnlen, str(bname),
-				btlen, str(btext))
+				bnlen + btlen + 8,
+				cursor,
+				bnlen, str(bname), str(btext))
+		return res
+
+	@staticmethod
+	def res_cursor(name, cursor):
+		"""
+		Response "Author (name) just moved to (cursor)."
+		"""
+		bname = bytearray(name, "utf8")
+		bnlen = len(bname)
+		res = struct.pack(
+				"<BIII{}s".format(bnlen),
+				Protocol.RES_INSERT,
+				bnlen + 4,
+				cursor,
+				bnlen, str(bname))
+		return res
+
+	@staticmethod
+	def res_commit(version, sequence):
+		"""
+		Commit response, consisting of a request or response sequence.
+		"""
+		# Build a binary of the operation sequence.
+		bseq = bytearray()
+		for op in sequence:
+			print("Op: {}".format(op))
+			op_id = op["id"]
+			if op_id == Protocol.REQ_INSERT:
+				bseq += Protocol.req_insert(op["cursor"], op["text"])
+			elif op_id == Protocol.RES_INSERT:
+				bseq += Protocol.res_insert(op["name"], op["cursor"], op["text"])
+			elif op_id == Protocol.REQ_REMOVE:
+				bseq += Protocol.req_remove(op["cursor"], op["length"])
+			elif op_id == Protocol.RES_REMOVE:
+				bseq += Protocol.res_remove(op["name"], op["cursor"], op["length"])
+			elif op_id == Protocol.REQ_SET_CURPOS:
+				bseq += Protocol.req_set_cursor_pos(op["cursor"])
+			elif op_id == Protocol.RES_CURSOR:
+				bseq += Protocol.res_cursor(op["name"], op["cursor"])
+		bslen = len(bseq)
+		
+		res = struct.pack(
+				"<BII{}s".format(bslen),
+				Protocol.RES_COMMIT,
+				bslen + 4, version, str(bseq))
+		print(cu.to_hex_str(res))
 		return res
 
 	@staticmethod
@@ -110,10 +161,10 @@ Protocol for requests and responses.
 		# TODO:: Should we have timestamp here, as well?
 		# Or some kind of a commit hash?
 		req = struct.pack(
-				"<BIIII{}s".format(blen),
+				"<BIII{}s".format(blen),
 				Protocol.RES_TEXT,
-				blen + 12, version, cursor,
-				blen, str(btext))
+				blen + 8, version, cursor,
+				str(btext))
 		return req
 
 	@staticmethod
@@ -126,11 +177,11 @@ Protocol for requests and responses.
 		bdoc = bytearray(doc, "utf8")
 		bdlen = len(bdoc)
 		req = struct.pack(
-				"<BII{}sI{}s".format(bnlen, bdlen),
+				"<BII{}s{}s".format(bnlen, bdlen),
 				Protocol.REQ_JOIN,
-				bnlen + bdlen + 8, 
+				bnlen + bdlen + 4, 
 				bnlen, str(bname),
-				bdlen, str(bdoc))
+				str(bdoc))
 		return req
 
 	@staticmethod
@@ -143,7 +194,7 @@ Protocol for requests and responses.
 		return req
 
 	@staticmethod
-	def req_insert(version, cursor, text):
+	def req_insert(cursor, text):
 		"""
 		Request for an insertion of text on the remote.
 		Client: "Help, I accidentally type (text)"
@@ -151,33 +202,32 @@ Protocol for requests and responses.
 		btext = bytearray(text, "utf8")
 		blen = len(btext)
 		req = struct.pack(
-				"<BIIII{}s".format(blen),
+				"<BII{}s".format(blen),
 				Protocol.REQ_INSERT,
-				blen + 12, version, cursor, 
-				blen, str(btext))
+				blen + 4, cursor, 
+				str(btext))
 		return req
 
 	@staticmethod
-	def req_remove(version, cursor, length):
+	def req_remove(cursor, length):
 		"""
 		Request to remove text on the remote.
 		"""
 		req = struct.pack(
-				"<BIIII",
+				"<BIII",
 				Protocol.REQ_REMOVE,
-				12, version, 
-				cursor, length)
+				12, cursor, length)
 		return req
 
 	@staticmethod
-	def req_set_cursor_pos(version, pos):
+	def req_set_cursor_pos(pos):
 		"""
 		Request for moving the current cursor position on the remote.
 		"""
 		req = struct.pack(
-				"<BIII", 
+				"<BII", 
 				Protocol.REQ_SET_CURPOS,
-				8, version, pos)
+				4, pos)
 		return req
 
 	@staticmethod
@@ -202,6 +252,71 @@ Protocol for requests and responses.
 		return r_len
 
 	@staticmethod
+	def unpack_op(breq):
+		"""
+		Unpack a text change operation.
+		"""
+		breq = bytearray(breq)
+
+		# Extract request ID and length.
+		r_id, r_len = struct.unpack("<BI", breq[:5])
+		breq_rest = breq[(5+r_len):]
+		breq = breq[5:(5+r_len)]
+		# Create a dict of parameters.
+		d = {"id":r_id}
+
+		# Insert text?
+		if r_id == Protocol.REQ_INSERT:
+			# Extract cursor position
+			cursor, = struct.unpack("<I", breq[:4])
+			d["cursor"] = cursor
+			# Extract text
+			d["text"] = breq[4:].decode("utf-8")
+		elif r_id == Protocol.RES_INSERT:
+			# Cursor index
+			cursor, = struct.unpack("<I", breq[:4])
+			breq = breq[4:]
+			d["cursor"] = cursor
+			# Extract author name
+			bnlen, = struct.unpack("<I", breq[:4])
+			breq = breq[4:]
+			bname, = struct.unpack("<{}s".format(bnlen), breq[:bnlen])
+			d["name"] = bname.decode("utf-8")
+			# Extract text
+			d["text"] = breq[bnlen:].decode("utf-8")
+		# Remove text?
+		elif r_id == Protocol.REQ_REMOVE:
+			cursor, length = struct.unpack(
+					"<II", breq[:8])
+			d["cursor"] = cursor
+			d["length"] = length
+		elif r_id == Protocol.RES_REMOVE:
+			# Extract cursor position, length.
+			cursor, length = struct.unpack(
+					"<II",	breq[:8])
+			d["cursor"] = cursor
+			d["length"] = length
+			d["name"] = breq[8:].decode("utf-8")
+		# Set remote cursor position?
+		elif r_id == Protocol.REQ_SET_CURPOS:
+			# Extract version and cursor index
+			version, cursor = struct.unpack("<II", breq)
+			d["cursor"] = cursor
+		# Cursor has been repositioned?
+		elif r_id == Protocol.RES_CURSOR:
+			# Cursor index
+			cursor, = struct.unpack("<I", breq[:4])
+			breq = breq[4:]
+			d["cursor"] = cursor
+			# Extract author name
+			bnlen, = struct.unpack("<I", breq[:4])
+			breq = breq[4:]
+			bname, = struct.unpack("<{}s".format(bnlen), breq[:bnlen])
+			d["name"] = bname.decode("utf-8")
+
+		return (breq_rest, d)
+
+	@staticmethod
 	def unpack(breq_original):
 		"""
 		Extract request or response parameters from binary.
@@ -214,20 +329,17 @@ Protocol for requests and responses.
 		# Create a dict of parameters.
 		d = {"id":r_id}
 
+		print("r_len: {}".format(r_len))
+
 		# Join
 		if r_id == Protocol.REQ_JOIN:
 			# Extract nickname
 			bnlen, = struct.unpack("<I", breq[:4])
 			breq = breq[4:]
 			bname, = struct.unpack("<{}s".format(bnlen), breq[:bnlen])
-			breq = breq[bnlen:]
-			# Extract document name
-			bdlen, = struct.unpack("<I", breq[:4])
-			breq = breq[4:]
-			bdoc, = struct.unpack("<{}s".format(bdlen), breq[:bdlen])
-
 			d["name"] = bname.decode("utf-8")
-			d["doc"] = bdoc.decode("utf-8")
+			# Extract document name
+			d["doc"] = breq[bnlen:].decode("utf-8")
 		# Or leave?
 		elif r_id == Protocol.REQ_LEAVE:
 			# No arguments here.
@@ -237,62 +349,29 @@ Protocol for requests and responses.
 			# No arguments
 			pass
 		elif r_id == Protocol.RES_TEXT:
-			version, cursor, blen, btext = struct.unpack(
-					"<III{}s".format(r_len - 12),
-					breq)
-			d["version"] = version
-			d["cursor"] = cursor
-			d["text"] = btext.decode("utf-8")
-		# Insert text?
-		elif r_id == Protocol.REQ_INSERT:
-			version, cursor, blen, btext = struct.unpack(
-					"<III{}s".format(r_len - 12),
-					breq)
-			d["version"] = version
-			d["cursor"] = cursor
-			d["text"] = btext.decode("utf-8")
-		elif r_id == Protocol.RES_INSERT:
-			# Version and cursor index
+			# Extract version, cursor
 			version, cursor, = struct.unpack("<II", breq[:8])
-			breq = breq[8:]
-			# Extract author name
-			bnlen, = struct.unpack("<I", breq[:4])
-			breq = breq[4:]
-			bname, = struct.unpack("<{}s".format(bnlen), breq[:bnlen])
-			breq = breq[bnlen:]
+			d["version"] = version
+			d["cursor"] = cursor
 			# Extract text
-			btlen, = struct.unpack("<I", breq[:4])
+			d["text"] = breq[8:].decode("utf-8")
+		# Commit?
+		elif r_id == Protocol.RES_COMMIT:
+			# Extract version
+			version, = struct.unpack("<I", breq[:4])
+			d["version"] = version
+			d["sequence"] = []
+			# Extract operations
 			breq = breq[4:]
-			btext, = struct.unpack("<{}s".format(btlen), breq)
-
-			d["version"] = version
-			d["cursor"] = cursor
-			d["name"] = bname.decode("utf-8")
-			d["text"] = btext.decode("utf-8")
-		# Remove text?
-		elif r_id == Protocol.REQ_REMOVE:
-			version, cursor, length = struct.unpack(
-					"<III", breq)
-			d["version"] = version
-			d["cursor"] = cursor
-			d["length"] = length
-		elif r_id == Protocol.RES_REMOVE:
-			version, cursor, length, blen, bname = struct.unpack(
-					"<IIII{}s".format(r_len - 16),
-					breq)
-			d["version"] = version
-			d["cursor"] = cursor
-			d["length"] = length
-			d["name"] = bname.decode("utf-8")
-		# Set remote cursor position?
-		elif r_id == Protocol.REQ_SET_CURPOS:
-			# Extract version and cursor index
-			version, cursor = struct.unpack("<II", breq)
-			d["version"] = version
-			d["cursor"] = cursor
+			while len(breq) > 0:
+				breq, dop = Protocol.unpack_op(breq)
+				print("Op: {}".format(dop))
+				d["sequence"].append(dop)
+		# Ok response
 		elif r_id == Protocol.RES_OK:
 			req, = struct.unpack("<B", breq[:1])
 			d["req_id"] = req
+		# Error response
 		elif r_id == Protocol.RES_ERROR:
 			error, = struct.unpack("<I", breq[:4])
 			d["error"] = error
@@ -306,3 +385,9 @@ class Message():
 		self.__dict__ = d
 		# An internal message (not propagated to authors)?
 		self.internal = internal
+	
+	def to_dict(self):
+		"""
+		Converts the message into a dictionary.
+		"""
+		return self.__dict__
