@@ -77,4 +77,5 @@ class Ui_ConnectDialog(object):
         self.editName.setText(_translate("ConnectDialog", "Anon"))
         self.editPort.setInputMask(_translate("ConnectDialog", "00000; "))
         self.editPort.setText(_translate("ConnectDialog", "7777"))
+        self.editDoc.setText(_translate("ConnectDialog", "test"))
 

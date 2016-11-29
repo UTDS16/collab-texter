@@ -15,7 +15,7 @@ class ConnectDialog(QtWidgets.QDialog):
 
 		self.log = logging.getLogger("CT.Client.ConnectDlg")
 
-		# pyuic4 ../../ui/connect.ui -o ui_connect.py
+		# pyuic5 ../../ui/connect.ui -o ui_connect.py
 		# Loads the UI from the generated python file.
 		self.content = Ui_ConnectDialog()
 		self.content.setupUi(self)
@@ -61,7 +61,7 @@ class MainWindow(QtWidgets.QMainWindow):
 	"""
 	The main window with the text editor.
 	"""
-	def __init__(self, client, address="localhost", port=7777, docname="", nickname="Anon"):
+	def __init__(self, client, address="localhost", port=7777, docname="test", nickname="Anon"):
 		super(MainWindow, self).__init__()
 
 		self.log = logging.getLogger("CT.Client.MainWnd")
@@ -69,8 +69,8 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.client = client
 		self.update_interval = 0.1
 
-		# pyrcc4 ../../ui/resources.qrc -o resources_rc.py
-		# pyuic4 ../../ui/main.ui -o ui_main.py
+		# pyrcc5 ../../ui/resources.qrc -o resources_rc.py
+		# pyuic5 ../../ui/main.ui -o ui_main.py
 		# Loads the UI from the generated python file.
 		self.content = Ui_MainWindow()
 		self.content.setupUi(self)
@@ -116,7 +116,11 @@ class MainWindow(QtWidgets.QMainWindow):
 		"""
 		Set the document name to join.
 		"""
-		self.docname = docname
+		if len(docname) < 1 or len(docname) > 128:
+			self.docname = "test"
+			self.log.error("Invalid document name \"{}\"".format(docname))
+		else:
+			self.docname = docname
 
 	def show_connect(self):
 		"""
