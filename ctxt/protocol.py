@@ -43,12 +43,6 @@ class Protocol():
 
 	# Request for full text
 	REQ_TEXT = 0xE0
-	# Request to insert text
-	REQ_INSERT = 0xE1
-	# Request to set cursor position
-	REQ_SET_CURPOS = 0xE3
-	# Request to remove text
-	REQ_REMOVE = 0xE4
 
 	# Internal close request
 	REQ_INT_CLOSE = 0xFF
@@ -127,18 +121,11 @@ class Protocol():
 		# Build a binary of the operation sequence.
 		bseq = bytearray()
 		for op in sequence:
-			print("Op: {}".format(op))
 			op_id = op["id"]
-			if op_id == Protocol.REQ_INSERT:
-				bseq += Protocol.req_insert(op["cursor"], op["text"])
-			elif op_id == Protocol.RES_INSERT:
+			if op_id == Protocol.RES_INSERT:
 				bseq += Protocol.res_insert(op["name"], op["cursor"], op["text"])
-			elif op_id == Protocol.REQ_REMOVE:
-				bseq += Protocol.req_remove(op["cursor"], op["length"])
 			elif op_id == Protocol.RES_REMOVE:
 				bseq += Protocol.res_remove(op["name"], op["cursor"], op["length"])
-			elif op_id == Protocol.REQ_SET_CURPOS:
-				bseq += Protocol.req_set_cursor_pos(op["cursor"])
 			elif op_id == Protocol.RES_CURSOR:
 				bseq += Protocol.res_cursor(op["name"], op["cursor"])
 		bslen = len(bseq)
@@ -147,7 +134,6 @@ class Protocol():
 				"<BII{}s".format(bslen),
 				Protocol.RES_COMMIT,
 				bslen + 4, version, str(bseq))
-		print(cu.to_hex_str(res))
 		return res
 
 	@staticmethod
@@ -194,43 +180,6 @@ class Protocol():
 		return req
 
 	@staticmethod
-	def req_insert(cursor, text):
-		"""
-		Request for an insertion of text on the remote.
-		Client: "Help, I accidentally type (text)"
-		"""
-		btext = bytearray(text, "utf8")
-		blen = len(btext)
-		req = struct.pack(
-				"<BII{}s".format(blen),
-				Protocol.REQ_INSERT,
-				blen + 4, cursor, 
-				str(btext))
-		return req
-
-	@staticmethod
-	def req_remove(cursor, length):
-		"""
-		Request to remove text on the remote.
-		"""
-		req = struct.pack(
-				"<BIII",
-				Protocol.REQ_REMOVE,
-				12, cursor, length)
-		return req
-
-	@staticmethod
-	def req_set_cursor_pos(pos):
-		"""
-		Request for moving the current cursor position on the remote.
-		"""
-		req = struct.pack(
-				"<BII", 
-				Protocol.REQ_SET_CURPOS,
-				4, pos)
-		return req
-
-	@staticmethod
 	def req_text():
 		"""
 		Request for the full text that is being edited by others.
@@ -266,13 +215,7 @@ class Protocol():
 		d = {"id":r_id}
 
 		# Insert text?
-		if r_id == Protocol.REQ_INSERT:
-			# Extract cursor position
-			cursor, = struct.unpack("<I", breq[:4])
-			d["cursor"] = cursor
-			# Extract text
-			d["text"] = breq[4:].decode("utf-8")
-		elif r_id == Protocol.RES_INSERT:
+		if r_id == Protocol.RES_INSERT:
 			# Cursor index
 			cursor, = struct.unpack("<I", breq[:4])
 			breq = breq[4:]
@@ -285,11 +228,6 @@ class Protocol():
 			# Extract text
 			d["text"] = breq[bnlen:].decode("utf-8")
 		# Remove text?
-		elif r_id == Protocol.REQ_REMOVE:
-			cursor, length = struct.unpack(
-					"<II", breq[:8])
-			d["cursor"] = cursor
-			d["length"] = length
 		elif r_id == Protocol.RES_REMOVE:
 			# Extract cursor position, length.
 			cursor, length = struct.unpack(
@@ -297,12 +235,7 @@ class Protocol():
 			d["cursor"] = cursor
 			d["length"] = length
 			d["name"] = breq[8:].decode("utf-8")
-		# Set remote cursor position?
-		elif r_id == Protocol.REQ_SET_CURPOS:
-			# Extract version and cursor index
-			version, cursor = struct.unpack("<II", breq)
-			d["cursor"] = cursor
-		# Cursor has been repositioned?
+		# Set cursor position?
 		elif r_id == Protocol.RES_CURSOR:
 			# Cursor index
 			cursor, = struct.unpack("<I", breq[:4])
@@ -328,8 +261,6 @@ class Protocol():
 		breq = breq[5:(5+r_len)]
 		# Create a dict of parameters.
 		d = {"id":r_id}
-
-		print("r_len: {}".format(r_len))
 
 		# Join
 		if r_id == Protocol.REQ_JOIN:
@@ -365,7 +296,6 @@ class Protocol():
 			breq = breq[4:]
 			while len(breq) > 0:
 				breq, dop = Protocol.unpack_op(breq)
-				print("Op: {}".format(dop))
 				d["sequence"].append(dop)
 		# Ok response
 		elif r_id == Protocol.RES_OK:

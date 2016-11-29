@@ -182,9 +182,10 @@ class MainWindow(QtWidgets.QMainWindow):
 		"""
 		cursor = self.content.textEdit.textCursor().position()
 		d = {
-				"id": cp.Protocol.REQ_INSERT,
+				"id": cp.Protocol.RES_INSERT,
 				"cursor": cursor,
-				"text": text
+				"text": text,
+				"name": self.nickname
 				}
 		self.active_commit["sequence"].append(d)
 	
@@ -200,9 +201,10 @@ class MainWindow(QtWidgets.QMainWindow):
 			cursor -= length
 		# And produce the message.
 		d = {
-				"id": cp.Protocol.REQ_REMOVE,
+				"id": cp.Protocol.RES_REMOVE,
 				"cursor": cursor,
-				"length": length
+				"length": length,
+				"name": self.nickname
 				}
 		self.active_commit["sequence"].append(d)
 	
@@ -223,9 +225,52 @@ class MainWindow(QtWidgets.QMainWindow):
 		d = {
 				"id": cp.Protocol.REQ_REMOVE,
 				"cursor": cursor.selectionStart(),
-				"length": length
+				"length": length,
+				"name": self.nickname
 				}
 		self.active_commit["sequence"].append(d)
+
+	def process_commit(self, commit):
+		"""
+		Process a commit message.
+		"""
+		for op in commit.sequence:
+			self.log.debug("Processing commit {}".format(op))
+
+			op_id = op["id"]
+			if "name" in op:
+				op_name = op["name"]
+			if "cursor" in op:
+				op_cursor = op["cursor"]
+			if "length" in op:
+				op_len = op["length"]
+			if "text" in op:
+				op_text = op["text"]
+
+			# NOTE:: Remove this, eventually
+			if op_name == self.nickname:
+				continue
+
+			# Someone inserted some text?
+			if op_id == cp.Protocol.RES_INSERT:
+				self.log.debug(u"{} inserted at {}: \"{}\"".format(
+					op_name, op_cursor, op_text))
+
+				# Generate a cursor at the desired position
+				# and insert the text there.
+				cursor = self.content.textEdit.textCursor()
+				cursor.setPosition(op_cursor)
+				cursor.insertText(op_text)
+			# Someone removed some text?
+			elif op_id == cp.Protocol.RES_REMOVE:
+				self.log.debug(u"{} removed {}-{}".format(
+					op_name, op_cursor, op_len))
+
+				# Generate the desired selection and remove the text.
+				cursor = self.content.textEdit.textCursor()
+				cursor.setPosition(op_cursor)
+				cursor.movePosition(QtGui.QTextCursor.Right, QtGui.QTextCursor.KeepAnchor, op_len)
+				cursor.removeSelectedText()
 
 	def update(self):
 		"""
@@ -245,7 +290,7 @@ class MainWindow(QtWidgets.QMainWindow):
 			self.active_commit["sequence"] = []
 
 		self.client.update()
-
+		# Anything in the queue?
 		if not self.client.queue_sc.empty():
 			msg = self.client.queue_sc.get()
 			# We've joined? Party?
@@ -256,28 +301,12 @@ class MainWindow(QtWidgets.QMainWindow):
 				self.content.textEdit.setText(msg.text)
 				# Enable the text editor
 				self.content.textEdit.setDisabled(False)
-			# Someone inserted some text?
-			elif msg.id == cp.Protocol.RES_INSERT:
-				self.log.debug(u"{} inserted version {} at {}: \"{}\"".format(
-					msg.name, msg.version, msg.cursor, msg.text))
+			# A new commit?
+			elif msg.id == cp.Protocol.RES_COMMIT:
+				self.log.debug("Received commit {:08X}".format(msg.version))
 				# TODO:: Merging here
-
-				# Generate a cursor at the desired position
-				# and insert the text there.
-				cursor = self.content.textEdit.textCursor()
-				cursor.setPosition(msg.cursor)
-				cursor.insertText(msg.text)
-			# Someone removed some text?
-			elif msg.id == cp.Protocol.RES_REMOVE:
-				self.log.debug(u"{} spawned a new version {} with remove at {}-{}".format(
-					msg.name, msg.version, msg.cursor, msg.length))
-				# TODO:: Merging here
-
-				# Generate the desired selection and remove the text.
-				cursor = self.content.textEdit.textCursor()
-				cursor.setPosition(msg.cursor)
-				cursor.movePosition(QtGui.QTextCursor.Right, QtGui.QTextCursor.KeepAnchor, msg.length)
-				cursor.removeSelectedText()
+				
+				self.process_commit(msg)
 	
 	def closeEvent(self, event):
 		"""

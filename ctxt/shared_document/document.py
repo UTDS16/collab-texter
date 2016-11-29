@@ -48,9 +48,9 @@ class Document:
 	def process_commit(self, commit):
 		print "Commit: {}".format(commit)
 		for op in commit.sequence:
-			if op["id"] in [cp.Protocol.REQ_INSERT, cp.Protocol.RES_INSERT]:
+			if op["id"] == cp.Protocol.RES_INSERT:
 				self.insert(commit.version, op["cursor"], op["text"])
-			elif op["id"] in [cp.Protocol.REQ_REMOVE, cp.Protocol.RES_REMOVE]:
+			elif op["id"] == cp.Protocol.RES_REMOVE:
 				self.remove(commit.version, op["cursor"], op["length"])
 		self.active_commit = commit
 

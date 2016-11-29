@@ -118,9 +118,7 @@ class Client():
 			# Extract payload length.
 			r_len = cp.Protocol.get_len(hdr)
 			# Receive the rest of the data.
-			# self.socket.setblocking(1)
 			data = self.socket.recv(r_len)
-			# self.socket.setblocking(0)
 			if len(data) < r_len:
 				self.log.warning("Dropped message")
 				return
@@ -143,12 +141,10 @@ class Client():
 			# Some kind of an error?
 			elif d["id"] == cp.Protocol.RES_ERROR:
 				self.log.error("Server error {}".format(d["error"]))
-			# Someone inserted or removed text?
-			elif d["id"] in [cp.Protocol.RES_INSERT, cp.Protocol.RES_REMOVE]:
-				self.log.debug(d)
-				if self.state == Client.STAT_EDITING:
-					msg = cp.Message(d, True)
-					self.queue_sc.put(msg)
+			# A commit?
+			elif d["id"] == cp.Protocol.RES_COMMIT:
+				msg = cp.Message(d, True)
+				self.queue_sc.put(msg)
 			# We've received full text?
 			elif d["id"] == cp.Protocol.RES_TEXT:
 				self.log.debug(d)
