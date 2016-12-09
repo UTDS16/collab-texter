@@ -25,7 +25,7 @@ class Protocol():
 	# Response: Request was erroneous
 	RES_ERROR = 0x01
 	# Response: Move text cursor
-	RES_CURSOR = 0x0D
+	RES_CURSOR = 0x0B
 	# A commit, both a request as well as response (sequence of insert, remove operations)
 	REQ_COMMIT = 0x0C
 	RES_COMMIT = 0x0C
