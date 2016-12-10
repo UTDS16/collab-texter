@@ -1,0 +1,28 @@
+title Joining a document
+
+participant Client
+participant Client\nThread
+participant Server
+participant Document
+
+Client->>Server: Connect
+Server-->*+Client\nThread: <<new>>
+
+Client->Client\nThread: join("xfile")
+Client\nThread->Server: join("xfile")
+alt document doesn't exist
+    Server-->*+Document: <<new>>
+else document exists
+    Server->Document: getDocument("xfile")
+end
+Document-->Server: document
+Server-->Client\nThread: document
+Client\nThread-->Client: ack
+
+Client->Client\nThread: getText
+Client\nThread->Server: getText("xfile")
+Server->Document: getText()
+Document-->Server: text
+Server-->Client\nThread: text
+Client\nThread-->Client: text
+
