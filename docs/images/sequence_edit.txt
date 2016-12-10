@@ -1,0 +1,34 @@
+title Editing a document
+
+participant Client 1
+participant Client 2
+participant Server
+participant Server\nDocument
+participant Client 1\nDocument
+participant Client 2\nDocument
+
+note right of Client 1: Client 1 types
+
+Client 1->>Client 1\nDocument: insertText()
+Client 1\nDocument->Client 1\nDocument: addToPending()
+note right of Client 1\nDocument: Commit is triggered by timeout
+Client 1\nDocument->Client 1\nDocument: addCommit()
+Client 1\nDocument->Client 1: addCommit()
+Client 1->>Server: REQ_COMMIT
+Server->Server\nDocument: addCommit()
+Server\nDocument-->Server: <<return>>
+Server-->>Client 1: RES_OK
+Client 1-->Client 1\nDocument: <<return>>
+Client 1\nDocument-->Client 1: <<return>>
+
+note right of Client 2: Client 2 types
+Client 2->>Client 2\nDocument: insertText()
+Client 2\nDocument->Client 2\nDocument: addToPending()
+Client 2\nDocument-->Client 2: <<return>>
+
+Server->>Client 1: RES_UPDATE
+Client 1->Client 1\nDocument: addCommit()
+Server->>Client 2: RES_UPDATE
+Client 2->Client 2\nDocument: addCommit()
+Client 2\nDocument->Client 2\nDocument: rebasePending()
+
