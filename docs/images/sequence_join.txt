@@ -6,23 +6,28 @@ participant Server
 participant Document
 
 Client->>Server: Connect
+Server->Server: accept()
 Server-->*+Client\nThread: <<new>>
 
-Client->Client\nThread: join("xfile")
-Client\nThread->Server: join("xfile")
+Client->>Client\nThread: REQ_JOIN("xfile")
+Client\nThread->>Server: addToQueue(REQ_JOIN)
+Server-->Client\nThread: <<return>>
+Client\nThread-->>Client: RES_OK
+Server->Server: processQueue()
 alt document doesn't exist
     Server-->*+Document: <<new>>
 else document exists
     Server->Document: getDocument("xfile")
 end
 Document-->Server: document
-Server-->Client\nThread: document
-Client\nThread-->Client: ack
 
-Client->Client\nThread: getText
-Client\nThread->Server: getText("xfile")
+Client->>Client\nThread: REQ_TEXT
+Client\nThread->>Server: addToQueue(REQ_TEXT)
+Server-->Client\nThread: <<return>>
+Server->Server: processQueue()
 Server->Document: getText()
 Document-->Server: text
-Server-->Client\nThread: text
-Client\nThread-->Client: text
+Server-->>Client\nThread: addToQueue(RES_TEXT)
+Client\nThread-->>Client: RES_TEXT
+
 
